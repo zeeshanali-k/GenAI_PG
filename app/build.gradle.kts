@@ -1,17 +1,17 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.composeCompiler)
 }
 
 android {
-    namespace = "com.devscion.llmspg"
+    namespace = "com.devscion.genai_pg_kmp"
     compileSdk {
         version = release(36)
     }
 
     defaultConfig {
-        applicationId = "com.devscion.llmspg"
+        applicationId = "com.devscion.genai_pg"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -57,8 +57,11 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
-//  Gen AI Deps
+    implementation(project(":GenAI_PG_KMP:composeApp"))
+    /* Gen AI Libraries */
+    //  MediaPipe
     implementation(libs.tasks.genai)
-//    LiteRT-LM
+    //    LiteRT-LM
     implementation(libs.litertlm.android)
+    /* Gen AI Libraries */
 }
