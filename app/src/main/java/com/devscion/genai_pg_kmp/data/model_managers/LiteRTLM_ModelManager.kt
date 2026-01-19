@@ -1,10 +1,12 @@
 package com.devscion.genai_pg_kmp.data.model_managers
 
 import android.content.Context
-import com.devscion.genai_pg_kmp.data.ChunkedModelResponse
 import com.devscion.genai_pg_kmp.domain.ModelManager
+import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
+import com.devscion.genai_pg_kmp.domain.model.InferenceBackend
 import com.devscion.genai_pg_kmp.domain.model.Model
-import com.devscion.genai_pg_kmp.domain.model.toLiteRTLMBackend
+import com.devscion.genai_pg_kmp.utils.modelPath
+import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
@@ -83,12 +85,18 @@ class LiteRTLM_ModelManager(
         engine = null
     }
 
+
+    fun InferenceBackend.toLiteRTLMBackend(): Backend = when (this) {
+        InferenceBackend.CPU -> Backend.CPU
+        InferenceBackend.GPU -> Backend.GPU
+    }
+
     companion object {
         val MODELS_LIST = listOf(
             Model(
-                id = "gemma-3n-E2B-it-int4.litertlm",
-                name = "Gemma 3n 2B",
-                size = 3660,
+                id = "Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm",
+                name = "Qwen2.5 1.5B",
+                size = 1600,
             ),
         )
     }

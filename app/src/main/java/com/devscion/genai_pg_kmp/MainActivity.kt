@@ -18,6 +18,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.retain.retain
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import com.devscion.genai_pg_kmp.data.model_managers.LiteRTLM_ModelManager
 import com.devscion.genai_pg_kmp.data.model_managers.MediaPipeModelManager
 import com.devscion.genai_pg_kmp.ui.theme.LLMsPGTheme
 import kotlinx.coroutines.flow.collectLatest
@@ -35,6 +36,10 @@ class MainActivity : ComponentActivity() {
                             applicationContext,
                             MediaPipeModelManager.MODELS_LIST.first()
                         )
+//                        LiteRTLM_ModelManager(
+//                            applicationContext,
+//                            LiteRTLM_ModelManager.MODELS_LIST.first()
+//                        )
                     }
                     val response = rememberSaveable {
                         mutableStateOf("")
@@ -47,7 +52,7 @@ class MainActivity : ComponentActivity() {
                                 Log.d("LLMResponse", "chunkedResponse-> $it")
                                 response.value += it.chunk
                                 if (it.isDone) {
-                                    Log.d("LLMResponse","Done-> ${response.value.length}")
+                                    Log.d("LLMResponse", "Done-> ${response.value.length}")
                                 }
                                 launch {
                                     scrollState.animateScrollBy(20f)
