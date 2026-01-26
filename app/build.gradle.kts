@@ -1,11 +1,10 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.composeCompiler)
 }
 
 android {
-    namespace = "com.devscion.genai_pg_kmp"
+    namespace = "com.devscion.genai_pg"
     compileSdk {
         version = release(36)
     }
@@ -58,10 +57,6 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     implementation(project(":GenAI_PG_KMP:composeApp"))
-    /* Gen AI Libraries */
-    //  MediaPipe
-    implementation(libs.tasks.genai)
-    //    LiteRT-LM
-    implementation(libs.litertlm.android)
-    /* Gen AI Libraries */
+
+    implementation(libs.koin.android)
 }

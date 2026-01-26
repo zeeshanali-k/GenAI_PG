@@ -1,13 +1,17 @@
 import UIKit
 import SwiftUI
-import ComposeApp
+import composeApp
 
 struct ComposeView: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIViewController {
-        MainViewControllerKt.MainViewController()
+        
+        MainViewControllerKt.MainViewController(
+            swiftModelManager : MediaPipeModelManager()
+        )
     }
 
-    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
+    }
 }
 
 struct ContentView: View {

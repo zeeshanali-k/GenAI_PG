@@ -18,4 +18,195 @@ data class Model(
     val temperature: Float = 0.5f,
     val topP: Float = 0.95f,
     val randomSeed: Int = 0,
-)
+    val modelType: ModelManagerType,
+) {
+    companion object {
+        val LITE_RT_LM_MODELS = buildList {
+            val modelType = ModelManagerType.LITE_RT_LM
+            add(
+                Model(
+                    id = "Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm",
+                    name = "Qwen2.5 1.5B",
+                    size = 1600,
+                    modelType = modelType,
+                )
+            )
+        }
+        val MEDIA_PIPE_MODELS_IOS = buildList {
+            val modelType = ModelManagerType.MEDIA_PIPE
+            add(
+                Model(
+                    id = "gemma-1.1-2b-it-gpu-int4.bin",
+                    name = "Gemma-1.1 2B IT (GPU)",
+                    size = 1070,
+                    backend = InferenceBackend.GPU,
+                    temperature = 1.0f,
+                    topK = 64,
+                    topP = 0.95f,
+                    modelType = modelType
+                )
+            )
+            add(
+                Model(
+                    id = "gemma-1.1-2b-it-cpu-int4.bin",
+                    name = "Gemma-1.1 2B IT (CPU)",
+                    size = 1070,
+                    backend = InferenceBackend.CPU,
+                    temperature = 1.0f,
+                    topK = 64,
+                    topP = 0.95f,
+                    modelType = modelType
+                )
+            )
+        }
+        val MEDIA_PIPE_MODELS = buildList {
+            val modelType = ModelManagerType.MEDIA_PIPE
+
+            add(
+                Model(
+                    id = "Gemma3-1B-IT_multi-prefill-seq_q8_ekv2048.task",
+                    name = "Gemma3 1B IT (CPU)",
+                    size = 1070,
+                    backend = InferenceBackend.CPU,
+                    temperature = 1.0f,
+                    topK = 64,
+                    topP = 0.95f,
+                    modelType = modelType
+                )
+            )
+            add(
+                Model(
+                    id = "Gemma3-1B-IT_multi-prefill-seq_q8_ekv2048.task",
+                    name = "Gemma3 1B IT (GPU)",
+                    size = 1070,
+                    backend = InferenceBackend.GPU,
+                    temperature = 1.0f,
+                    topK = 64,
+                    topP = 0.95f,
+                    modelType = modelType
+                )
+            )
+            add(
+                Model(
+                    id = "Gemma2-2B-IT_multi-prefill-seq_q8_ekv1280.task",
+                    name = "Gemma2 2B IT",
+                    size = 2600,
+                    backend = InferenceBackend.CPU,
+                    temperature = 0.6f,
+                    topK = 50,
+                    topP = 0.9f,
+                    modelType = modelType
+                )
+            )
+            add(
+                Model(
+                    id = "DeepSeek-R1-Distill-Qwen-1.5B_multi-prefill-seq_q8_ekv1280.task",
+                    name = "DeepSeek R1 Distill Qwen 1.5B",
+                    size = 1600,
+                    backend = InferenceBackend.CPU,
+                    temperature = 0.6f,
+                    topK = 40,
+                    topP = 0.7f,
+                    modelType = modelType
+                )
+            )
+            add(
+                Model(
+                    id = "Llama-3.2-1B-Instruct_multi-prefill-seq_q8_ekv1280.task",
+                    name = "Llama 3.2 1B Instruct",
+                    size = 1200,
+                    backend = InferenceBackend.CPU,
+                    temperature = 0.6f,
+                    topK = 64,
+                    topP = 0.9f,
+                    modelType = modelType
+                )
+            )
+            add(
+                Model(
+                    id = "Llama-3.2-3B-Instruct_multi-prefill-seq_q8_ekv1280.task",
+                    name = "Llama 3.2 3B Instruct",
+                    size = 3200,
+                    backend = InferenceBackend.CPU,
+                    temperature = 0.6f,
+                    topK = 64,
+                    topP = 0.9f,
+                    modelType = modelType
+                )
+            )
+            add(
+                Model(
+                    id = "Phi-4-mini-instruct_multi-prefill-seq_q8_ekv1280.task",
+                    name = "Phi-4 Mini Instruct",
+                    size = 3600,
+                    backend = InferenceBackend.CPU,
+                    temperature = 0.6f,
+                    topK = 40,
+                    topP = 1.0f,
+                    modelType = modelType
+                )
+            )
+            add(
+                Model(
+                    id = "Qwen2.5-0.5B-Instruct_multi-prefill-seq_q8_ekv1280.task",
+                    name = "Qwen2.5 0.5B Instruct",
+                    size = 600,
+                    backend = InferenceBackend.CPU,
+                    temperature = 0.95f,
+                    topK = 40,
+                    topP = 1.0f,
+                    modelType = modelType
+                )
+            )
+            add(
+                Model(
+                    id = "Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv1280.task",
+                    name = "Qwen2.5 1.5B Instruct",
+                    size = 1600,
+                    backend = InferenceBackend.CPU,
+                    temperature = 0.95f,
+                    topK = 40,
+                    topP = 1.0f,
+                    modelType = modelType
+                )
+            )
+            add(
+                Model(
+                    id = "Qwen2.5-3B-Instruct_multi-prefill-seq_q8_ekv1280.task",
+                    name = "Qwen2.5 3B Instruct",
+                    size = 3200,
+                    backend = InferenceBackend.CPU,
+                    temperature = 0.95f,
+                    topK = 40,
+                    topP = 1.0f,
+                    modelType = modelType
+                )
+            )
+            add(
+                Model(
+                    id = "SmolLM-135M-Instruct_multi-prefill-seq_q8_ekv1280.task",
+                    name = "SmolLM 135M Instruct",
+                    size = 200,
+                    backend = InferenceBackend.CPU,
+                    temperature = 0.95f,
+                    topK = 40,
+                    topP = 1.0f,
+                    modelType = modelType
+                )
+            )
+            add(
+                Model(
+                    id = "TinyLlama-1.1B-Chat-v1.0_multi-prefill-seq_q8_ekv1280.task",
+                    name = "TinyLlama 1.1B Chat v1.0",
+                    size = 1100,
+                    backend = InferenceBackend.CPU,
+                    temperature = 0.95f,
+                    topK = 40,
+                    topP = 1.0f,
+                    modelType = modelType
+                )
+            )
+        }
+        private val ALL_MODELS = LITE_RT_LM_MODELS + MEDIA_PIPE_MODELS
+    }
+}

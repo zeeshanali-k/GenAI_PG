@@ -1,13 +1,15 @@
 package com.devscion.genai_pg_kmp.data.model_managers
 
 import android.content.Context
-import com.devscion.genai_pg_kmp.domain.ModelManager
+import com.devscion.genai_pg_kmp.domain.LLMModelManager
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
 import com.devscion.genai_pg_kmp.domain.model.InferenceBackend
 import com.devscion.genai_pg_kmp.domain.model.Model
 import com.devscion.genai_pg_kmp.utils.modelPath
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Content
+import com.google.ai.edge.litertlm.Contents
+import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
@@ -23,13 +25,13 @@ import kotlinx.coroutines.withContext
 
 class LiteRTLM_ModelManager(
     private val context: Context,
-    private val model: Model,
-    override val systemMessage: String? = null,
-) : ModelManager {
+) : LLMModelManager {
 
+    private var conversation: Conversation? = null
+    override var systemMessage: String? = null
     private var engine: Engine? = null
 
-    override suspend fun loadModel() {
+    override suspend fun loadModel(model: Model) {
         withContext(Dispatchers.IO) {
             val engineConfig = EngineConfig(
                 modelPath = model.modelPath(context),
@@ -40,17 +42,9 @@ class LiteRTLM_ModelManager(
             )
             engine = Engine(engineConfig)
             engine?.initialize()
-        }
-    }
-
-    override suspend fun sendPromptToLLM(inputPrompt: String): Flow<ChunkedModelResponse> =
-        callbackFlow {
-            if (engine == null) {
-                throw IllegalStateException("Engine must be initialized")
-            }
             val conversationConfig = ConversationConfig(
                 systemMessage = systemMessage?.let {
-                    Message.of(Content.Text(it))
+                    Message.model(Contents.of(Content.Text(it)))
                 },
                 samplerConfig = SamplerConfig(
                     topK = model.topK,
@@ -60,11 +54,19 @@ class LiteRTLM_ModelManager(
                 ),
             )
 
-            val conversation = engine?.createConversation(conversationConfig)
-            conversation?.sendMessageAsync(Message.of(Content.Text(inputPrompt)))
+            conversation = engine?.createConversation(conversationConfig)
+        }
+    }
+
+    override suspend fun sendPromptToLLM(inputPrompt: String): Flow<ChunkedModelResponse> =
+        callbackFlow {
+            if (engine == null) {
+                throw IllegalStateException("Engine must be initialized")
+            }
+            conversation?.sendMessageAsync(Contents.of(Content.Text(inputPrompt)))
                 ?.catch { }
                 ?.collectLatest { message ->
-                    message.contents.forEach {
+                    message.contents.contents.forEach {
                         if (it is Content.Text)
                             this.send(
                                 ChunkedModelResponse(
@@ -83,21 +85,13 @@ class LiteRTLM_ModelManager(
     override fun close() {
         engine?.close()
         engine = null
+        conversation?.close()
+        conversation = null
     }
 
 
     fun InferenceBackend.toLiteRTLMBackend(): Backend = when (this) {
         InferenceBackend.CPU -> Backend.CPU
         InferenceBackend.GPU -> Backend.GPU
-    }
-
-    companion object {
-        val MODELS_LIST = listOf(
-            Model(
-                id = "Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm",
-                name = "Qwen2.5 1.5B",
-                size = 1600,
-            ),
-        )
     }
 }

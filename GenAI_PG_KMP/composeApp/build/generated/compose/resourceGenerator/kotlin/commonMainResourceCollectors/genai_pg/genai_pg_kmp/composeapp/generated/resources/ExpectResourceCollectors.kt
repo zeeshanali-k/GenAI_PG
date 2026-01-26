@@ -8,12 +8,12 @@ import org.jetbrains.compose.resources.PluralStringResource
 import org.jetbrains.compose.resources.StringArrayResource
 import org.jetbrains.compose.resources.StringResource
 
-internal expect val Res.allDrawableResources: Map<String, DrawableResource>
+public expect val Res.allDrawableResources: Map<String, DrawableResource>
 
-internal expect val Res.allStringResources: Map<String, StringResource>
+public expect val Res.allStringResources: Map<String, StringResource>
 
-internal expect val Res.allStringArrayResources: Map<String, StringArrayResource>
+public expect val Res.allStringArrayResources: Map<String, StringArrayResource>
 
-internal expect val Res.allPluralStringResources: Map<String, PluralStringResource>
+public expect val Res.allPluralStringResources: Map<String, PluralStringResource>
 
-internal expect val Res.allFontResources: Map<String, FontResource>
+public expect val Res.allFontResources: Map<String, FontResource>

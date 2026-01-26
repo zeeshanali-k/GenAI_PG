@@ -1,0 +1,19 @@
+@file:OptIn(ExperimentalForeignApi::class)
+
+package com.devscion.genai_pg_kmp.domain
+
+import com.devscion.genai_pg_kmp.domain.model.Model
+import kotlinx.cinterop.ExperimentalForeignApi
+
+interface SwiftModelManager {
+
+    fun loadModel(model: Model)
+
+    fun sizeInTokens(text: String): Int
+
+    suspend fun generateResponseAsync(
+        inputText: String,
+        progress: (partialResponse: String) -> Unit,
+        completion: (completeResponse: String, error: String?) -> Unit
+    )
+}

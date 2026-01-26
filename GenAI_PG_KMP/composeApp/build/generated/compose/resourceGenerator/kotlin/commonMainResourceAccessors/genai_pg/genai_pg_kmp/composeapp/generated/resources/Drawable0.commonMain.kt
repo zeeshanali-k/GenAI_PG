@@ -14,7 +14,7 @@ private const val MD: String =
     "composeResources/genai_pg.genai_pg_kmp.composeapp.generated.resources/"
 
 @delegate:ResourceContentHash(379_089_144)
-internal val Res.drawable.compose_multiplatform: DrawableResource by lazy {
+public val Res.drawable.compose_multiplatform: DrawableResource by lazy {
       DrawableResource("drawable:compose_multiplatform", setOf(
         ResourceItem(setOf(), "${MD}drawable/compose-multiplatform.xml", -1, -1),
       ))

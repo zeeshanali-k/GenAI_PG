@@ -14,7 +14,7 @@ import org.jetbrains.compose.resources.InternalResourceApi
 import org.jetbrains.compose.resources.getResourceUri
 import org.jetbrains.compose.resources.readResourceBytes
 
-internal object Res {
+public object Res {
   /**
    * Reads the content of the resource file at the specified path and returns it as a byte array.
    *
