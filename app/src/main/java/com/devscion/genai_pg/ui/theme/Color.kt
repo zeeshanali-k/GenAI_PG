@@ -1,4 +1,4 @@
-package com.devscion.genai_pg_kmp.ui.theme
+package com.devscion.genai_pg.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

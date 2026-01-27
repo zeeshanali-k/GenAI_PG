@@ -18,11 +18,11 @@ data class Model(
     val temperature: Float = 0.5f,
     val topP: Float = 0.95f,
     val randomSeed: Int = 0,
-    val modelType: ModelManagerType,
+    val modelType: ModelManagerRuntime,
 ) {
     companion object {
         val LITE_RT_LM_MODELS = buildList {
-            val modelType = ModelManagerType.LITE_RT_LM
+            val modelType = ModelManagerRuntime.LITE_RT_LM
             add(
                 Model(
                     id = "Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm",
@@ -33,7 +33,7 @@ data class Model(
             )
         }
         val MEDIA_PIPE_MODELS_IOS = buildList {
-            val modelType = ModelManagerType.MEDIA_PIPE
+            val modelType = ModelManagerRuntime.MEDIA_PIPE
             add(
                 Model(
                     id = "gemma-1.1-2b-it-gpu-int4.bin",
@@ -60,7 +60,7 @@ data class Model(
             )
         }
         val MEDIA_PIPE_MODELS = buildList {
-            val modelType = ModelManagerType.MEDIA_PIPE
+            val modelType = ModelManagerRuntime.MEDIA_PIPE
 
             add(
                 Model(

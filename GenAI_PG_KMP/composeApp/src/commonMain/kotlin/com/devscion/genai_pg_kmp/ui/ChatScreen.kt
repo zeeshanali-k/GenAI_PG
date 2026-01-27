@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.devscion.genai_pg_kmp.domain.model.ModelManagerOption
 import com.devscion.genai_pg_kmp.ui.components.ChatBubble
 import com.devscion.genai_pg_kmp.ui.components.LLMRuntimeSelection
 import com.devscion.genai_pg_kmp.ui.components.LLMRuntimeSelectionDialog
@@ -57,6 +58,7 @@ fun ChatScreen(
             Modifier
                 .padding(it),
             onToggleRuntimeSelection = viewModel::toggleManagerSelection,
+            onRuntimeSelection = viewModel::onRuntimeSelected,
         )
     }
 }
@@ -66,6 +68,7 @@ fun ChatScreen(
 fun ChatUIState.Success.ChatHistoryContent(
     modifier: Modifier,
     onToggleRuntimeSelection: () -> Unit,
+    onRuntimeSelection: (ModelManagerOption) -> Unit,
 ) {
     LazyColumn(
         modifier.fillMaxSize(),
@@ -100,6 +103,7 @@ fun ChatUIState.Success.ChatHistoryContent(
             modelManagerOptions = modelManagerState.modelManagerOptions,
             selectedModelManagerOption = modelManagerState.selectedManager,
             onDismiss = onToggleRuntimeSelection,
+            onRuntimeSelection = onRuntimeSelection
         )
     }
 }
