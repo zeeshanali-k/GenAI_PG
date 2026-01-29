@@ -17,6 +17,10 @@ class LiteRT_LMModelManager : LLMModelManager {
     override fun close() {
     }
 
+    override fun stopResponseGeneration() {
+
+    }
+
     override suspend fun sendPromptToLLM(inputPrompt: String): Flow<ChunkedModelResponse> = flow {
     }
 }

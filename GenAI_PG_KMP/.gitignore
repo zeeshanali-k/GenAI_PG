@@ -1,3 +1,4 @@
 .gradle
+composeApp/build/
 composeApp/build
 composeApp/composeApp.podspec

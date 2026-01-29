@@ -21,14 +21,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.devscion.genai_pg_kmp.domain.model.ModelManagerOption
 
 @Composable
-fun LLMRuntimeSelectionDialog(
-    modelManagerOptions: List<ModelManagerOption>,
-    selectedModelManagerOption: ModelManagerOption?,
+fun <T : Any> OptionSelectionDialog(
+    title: String,
+    options: List<T>,
+    selectedOption: T?,
+    getTitle: T.() -> String,
+    isSelected: T.(selectedOption: T?) -> Boolean,
     onDismiss: () -> Unit,
-    onRuntimeSelection: (ModelManagerOption) -> Unit,
+    onRuntimeSelection: (T) -> Unit,
 ) {
     Dialog(
         onDismissRequest = onDismiss,
@@ -48,7 +50,9 @@ fun LLMRuntimeSelectionDialog(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Spacer(Modifier)
-                Text("Select Runtime")
+                Text(
+                    title, style = MaterialTheme.typography.bodyLarge,
+                )
                 Icon(
                     Icons.Default.Close, "",
                     modifier = Modifier.clickable(
@@ -59,11 +63,11 @@ fun LLMRuntimeSelectionDialog(
                 )
             }
             LazyColumn(Modifier.fillMaxWidth()) {
-
-                items(modelManagerOptions) {
-                    LLMRuntimeSelection(
-                        modelManagerOption = it,
-                        isSelected = it.id == selectedModelManagerOption?.id,
+                items(options) {
+                    SelectionButton(
+                        modifier = Modifier.fillMaxWidth(),
+                        title = it.getTitle(),
+                        isSelected = it.isSelected(selectedOption),
                         onClick = {
                             onRuntimeSelection(it)
                         }

@@ -11,6 +11,10 @@ interface SwiftModelManager {
 
     fun sizeInTokens(text: String): Int
 
+    fun close()
+
+    fun stopResponseGeneration()
+
     suspend fun generateResponseAsync(
         inputText: String,
         progress: (partialResponse: String) -> Unit,

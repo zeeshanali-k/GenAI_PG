@@ -3,7 +3,6 @@ package com.devscion.genai_pg_kmp.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -13,18 +12,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.devscion.genai_pg_kmp.domain.model.ModelManagerOption
 
 @Composable
-fun LLMRuntimeSelection(
+fun SelectionButton(
     modifier: Modifier = Modifier,
-    modelManagerOption: ModelManagerOption?,
+    title: String,
     isSelected: Boolean,
     onClick: () -> Unit,
 ) {
-
-    Box(
-        modifier
+    Text(
+        title,
+        textAlign = TextAlign.Start,
+        modifier = modifier
             .then(
                 if (isSelected) Modifier.border(
                     1.dp,
@@ -36,21 +35,16 @@ fun LLMRuntimeSelection(
             .clip(MaterialTheme.shapes.medium)
             .background(MaterialTheme.colorScheme.secondaryContainer)
             .clickable(onClick = onClick)
-            .padding(9.dp),
-    ) {
-        Text(
-            modelManagerOption?.managerName ?: "Select Runtime",
-            textAlign = TextAlign.Start,
-        )
-    }
+            .padding(9.dp)
+    )
 }
 
 
 @Preview
 @Composable
-fun LLMRuntimeSelectionNotSelectedPreview() {
-    LLMRuntimeSelection(
-        modelManagerOption = ModelManagerOption.MEDIA_PIPE,
+fun SelectionButtonNotSelectedPreview() {
+    SelectionButton(
+        title = "Not Selected",
         isSelected = false,
         onClick = { },
     )
@@ -58,9 +52,9 @@ fun LLMRuntimeSelectionNotSelectedPreview() {
 
 @Preview
 @Composable
-fun LLMRuntimeSelectionSelectedPreview() {
-    LLMRuntimeSelection(
-        modelManagerOption = ModelManagerOption.MEDIA_PIPE,
+fun SelectionButtonSelectedPreview() {
+    SelectionButton(
+        title = "Selected",
         isSelected = true,
         onClick = { },
     )

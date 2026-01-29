@@ -12,6 +12,8 @@ interface LLMModelManager {
 
     fun close()
 
+    fun stopResponseGeneration()
+
     suspend fun sendPromptToLLM(inputPrompt: String): Flow<ChunkedModelResponse>
 
 }

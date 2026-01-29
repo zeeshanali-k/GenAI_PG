@@ -21,21 +21,24 @@ class MediaPipeModelManager(
     override var systemMessage: String? = null
 
     override suspend fun loadModel(model: Model) {
+        println("LLMResponse loadModel-> Loading Path")
         withContext(Dispatchers.IO) {
-            println("LLMResponse loadModel-> Loading Path")
-            withContext(Dispatchers.IO) {
-                swiftModelManager.loadModel(model)
-                println("LLMResponse loadModel-> Loading completed")
-            }
+            swiftModelManager.loadModel(model)
+            println("LLMResponse loadModel-> Loading completed")
         }
     }
 
     override fun close() {
+        swiftModelManager.close()
+    }
+
+    override fun stopResponseGeneration() {
+        swiftModelManager.stopResponseGeneration()
     }
 
     override suspend fun sendPromptToLLM(inputPrompt: String): Flow<ChunkedModelResponse> =
-        callbackFlow {
-            withContext(Dispatchers.IO) {
+        withContext(Dispatchers.IO) {
+            callbackFlow {
                 swiftModelManager.generateResponseAsync(
                     inputPrompt,
                     { chunk ->
@@ -55,10 +58,10 @@ class MediaPipeModelManager(
                     trySend(ChunkedModelResponse(isDone = true, chunk = ""))
                     close()
                 }
-            }
 
-            awaitClose {
-                trySend(ChunkedModelResponse(isDone = true, chunk = ""))
+                awaitClose {
+                    trySend(ChunkedModelResponse(isDone = true, chunk = ""))
+                }
             }
         }
 }

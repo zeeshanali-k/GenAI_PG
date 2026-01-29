@@ -40,7 +40,7 @@ class MediaPipeModelManager(
                 .setPreferredBackend(model.backend.toMediaPipeBackend())
                 .build()
             llmInference = LlmInference.createFromOptions(context, taskOptions)
-//            createSession(model)
+            createSession(model)
         }
     }
 
@@ -63,12 +63,13 @@ class MediaPipeModelManager(
     }
 
     override suspend fun sendPromptToLLM(inputPrompt: String): Flow<ChunkedModelResponse> =
-        callbackFlow {
-            if (llmInference == null) {
-                throw IllegalStateException("Engine must be initialized")
-            }
-            withContext(Dispatchers.IO) {
-                llmInference!!.generateResponseAsync(inputPrompt) { subText, isDone ->
+        withContext(Dispatchers.IO) {
+            callbackFlow {
+                if (inferenceSession == null) {
+                    throw IllegalStateException("Engine must be initialized")
+                }
+                inferenceSession!!.addQueryChunk(inputPrompt)
+                inferenceSession!!.generateResponseAsync { subText, isDone ->
                     Log.d("LLMResponse", "ModelManager-> $isDone :: $subText")
                     trySend(
                         ChunkedModelResponse(
@@ -76,7 +77,7 @@ class MediaPipeModelManager(
                             chunk = subText,
                         )
                     ).onFailure {
-                        Log.d("LLMResponse", "ModelManager failed-> $isDone :: $subText")
+                        Log.d("LLMResponse", "ModelManager failed-> $isDone")
                     }
                     if (isDone) {
                         close()
@@ -91,18 +92,23 @@ class MediaPipeModelManager(
 //                    )
 //                )
 //            }
-            }
 
-            awaitClose {
-                trySend(ChunkedModelResponse(isDone = true, chunk = ""))
+                awaitClose {
+                    trySend(ChunkedModelResponse(isDone = true, chunk = ""))
+                }
             }
         }
 
     override fun close() {
+        inferenceSession?.cancelGenerateResponseAsync()
         inferenceSession?.close()
         inferenceSession = null
         llmInference?.close()
         llmInference = null
+    }
+
+    override fun stopResponseGeneration() {
+        inferenceSession?.cancelGenerateResponseAsync()
     }
 
 

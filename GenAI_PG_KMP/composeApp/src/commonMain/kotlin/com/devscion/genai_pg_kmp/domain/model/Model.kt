@@ -21,7 +21,18 @@ data class Model(
     val modelType: ModelManagerRuntime,
 ) {
     companion object {
-        val LITE_RT_LM_MODELS = buildList {
+        fun models(type: ModelManagerRuntime, platform: Platform): List<Model> {
+            val isIOS = platform == Platform.IOS
+            return when (type) {
+                ModelManagerRuntime.LITE_RT_LM -> if (isIOS) emptyList()
+                else LITE_RT_LM_MODELS
+
+                ModelManagerRuntime.MEDIA_PIPE -> if (isIOS) MEDIA_PIPE_MODELS_IOS
+                else MEDIA_PIPE_MODELS
+            }
+        }
+
+        private val LITE_RT_LM_MODELS = buildList {
             val modelType = ModelManagerRuntime.LITE_RT_LM
             add(
                 Model(
@@ -32,7 +43,7 @@ data class Model(
                 )
             )
         }
-        val MEDIA_PIPE_MODELS_IOS = buildList {
+        private val MEDIA_PIPE_MODELS_IOS = buildList {
             val modelType = ModelManagerRuntime.MEDIA_PIPE
             add(
                 Model(
@@ -58,8 +69,20 @@ data class Model(
                     modelType = modelType
                 )
             )
+            add(
+                Model(
+                    id = "gemma2-2b-it-gpu-int8.bin",
+                    name = "Gemma-1.1 2B IT (GPU)",
+                    size = 1070,
+                    backend = InferenceBackend.GPU,
+                    temperature = 1.0f,
+                    topK = 64,
+                    topP = 0.95f,
+                    modelType = modelType
+                )
+            )
         }
-        val MEDIA_PIPE_MODELS = buildList {
+        private val MEDIA_PIPE_MODELS = buildList {
             val modelType = ModelManagerRuntime.MEDIA_PIPE
 
             add(
@@ -207,6 +230,7 @@ data class Model(
                 )
             )
         }
-        private val ALL_MODELS = LITE_RT_LM_MODELS + MEDIA_PIPE_MODELS
+        private val ALL_MODELS_ANDROID = LITE_RT_LM_MODELS + MEDIA_PIPE_MODELS
+        private val ALL_MODELS_IOS = MEDIA_PIPE_MODELS_IOS
     }
 }

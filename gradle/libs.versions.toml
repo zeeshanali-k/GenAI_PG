@@ -52,7 +52,6 @@ ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.ref = "ui
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlinCocoapods = { id = "org.jetbrains.kotlin.native.cocoapods", version.ref = "kotlin" }
 androidLibrary = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }

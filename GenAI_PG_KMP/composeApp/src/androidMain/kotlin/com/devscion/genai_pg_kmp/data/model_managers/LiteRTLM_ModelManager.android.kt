@@ -59,26 +59,42 @@ class LiteRTLM_ModelManager(
     }
 
     override suspend fun sendPromptToLLM(inputPrompt: String): Flow<ChunkedModelResponse> =
-        callbackFlow {
-            if (engine == null) {
-                throw IllegalStateException("Engine must be initialized")
-            }
-            conversation?.sendMessageAsync(Contents.of(Content.Text(inputPrompt)))
-                ?.catch { }
-                ?.collectLatest { message ->
-                    message.contents.contents.forEach {
-                        if (it is Content.Text)
-                            this.send(
-                                ChunkedModelResponse(
-                                    false,
-                                    it.text
-                                )
-                            )
-                    }
+        withContext(Dispatchers.IO) {
+            callbackFlow {
+                if (engine == null) {
+                    throw IllegalStateException("Engine must be initialized")
                 }
+                conversation?.sendMessageAsync(Contents.of(Content.Text(inputPrompt)))
+                    ?.catch {
+                        send(
+                            ChunkedModelResponse(
+                                true,
+                                ""
+                            )
+                        )
+                    }
+                    ?.collectLatest { message ->
+                        message.contents.contents.forEach {
+                            if (it is Content.Text) {
+                                this.send(
+                                    ChunkedModelResponse(
+                                        false,
+                                        it.text
+                                    )
+                                )
+                            }
+                        }
+                    }
 
-            awaitClose {
-                this@LiteRTLM_ModelManager.close()
+                awaitClose {
+                    this.trySend(
+                        ChunkedModelResponse(
+                            true,
+                            ""
+                        )
+                    )
+                    this@LiteRTLM_ModelManager.close()
+                }
             }
         }
 
@@ -87,6 +103,10 @@ class LiteRTLM_ModelManager(
         engine = null
         conversation?.close()
         conversation = null
+    }
+
+    override fun stopResponseGeneration() {
+        conversation?.cancelProcess()
     }
 
 
