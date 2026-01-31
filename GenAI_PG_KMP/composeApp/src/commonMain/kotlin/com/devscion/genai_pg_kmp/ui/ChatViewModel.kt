@@ -65,6 +65,22 @@ class ChatViewModel(
 
     fun onSend() {
         if (llmResponseJob?.isActive ?: false || inputFieldState.text.isEmpty()) return
+        if (modelManagerState.value.selectedManager == null) {
+            modelManagerState.update {
+                it.copy(
+                    modelManagerError = ModelManagerError.InvalidRuntime
+                )
+            }
+            return
+        }
+        if (modelManagerState.value.selectedLLM == null) {
+            modelManagerState.update {
+                it.copy(
+                    modelManagerError = ModelManagerError.InvalidModel
+                )
+            }
+            return
+        }
         llmResponseJob = viewModelScope.launch {
             addUserMessage()
             val message = inputFieldState.text.toString()
@@ -161,10 +177,12 @@ class ChatViewModel(
             )
         }
         viewModelScope.launch {
-            modelManager?.loadModel(model)
+            val isLoaded = modelManager!!.loadModel(model)
             modelManagerState.update {
                 it.copy(
-                    isLoadingModel = false
+                    isLoadingModel = false,
+                    modelManagerError = if (isLoaded) it.modelManagerError
+                    else ModelManagerError.FailedToLoadModel
                 )
             }
         }
@@ -174,6 +192,15 @@ class ChatViewModel(
         modelManagerState.update {
             it.copy(
                 showManagerSelection = it.showManagerSelection.not()
+            )
+        }
+    }
+
+    fun resetError() {
+
+        modelManagerState.update {
+            it.copy(
+                modelManagerError = ModelManagerError.Initial
             )
         }
     }

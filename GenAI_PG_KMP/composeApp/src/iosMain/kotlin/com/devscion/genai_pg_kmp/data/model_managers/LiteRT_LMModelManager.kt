@@ -10,8 +10,9 @@ class LiteRT_LMModelManager : LLMModelManager {
 
     override var systemMessage: String? = null
 
-    override suspend fun loadModel(model: Model) {
+    override suspend fun loadModel(model: Model): Boolean {
 
+        return false
     }
 
     override fun close() {

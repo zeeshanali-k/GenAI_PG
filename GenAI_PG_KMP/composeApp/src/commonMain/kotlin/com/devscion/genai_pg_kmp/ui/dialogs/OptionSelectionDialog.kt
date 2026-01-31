@@ -1,4 +1,4 @@
-package com.devscion.genai_pg_kmp.ui.components
+package com.devscion.genai_pg_kmp.ui.dialogs
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.devscion.genai_pg_kmp.ui.components.SelectionButton
 
 @Composable
 fun <T : Any> OptionSelectionDialog(

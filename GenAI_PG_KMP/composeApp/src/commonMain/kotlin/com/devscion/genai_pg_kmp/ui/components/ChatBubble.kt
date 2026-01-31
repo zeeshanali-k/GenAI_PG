@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -19,7 +20,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.tooling.preview.Preview
@@ -52,12 +52,13 @@ fun ChatBubble(
         delay(index * 60L)
         isLoaded = true
     }
+    val color = if (isSent) MaterialTheme.colorScheme.tertiaryContainer
+    else MaterialTheme.colorScheme.secondaryContainer
     Box(
         modifier
             .drawWithCache {
                 onDrawWithContent {
                     this.withTransform({
-//                        this.translate(if (isSent) size.width * 0.25f else 0f)
                         this.rotate(if (isSent) 180f else 0f)
                     }) {
                         val path = Path().apply {
@@ -93,7 +94,9 @@ fun ChatBubble(
                             this.lineTo(20f, 30f)
                             this.close()
                         }
-                        drawPath(path, Color.Red)
+                        drawPath(
+                            path, color
+                        )
                     }
 
                     drawContent()

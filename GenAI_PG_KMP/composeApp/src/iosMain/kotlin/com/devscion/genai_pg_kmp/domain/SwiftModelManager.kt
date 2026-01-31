@@ -7,7 +7,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 
 interface SwiftModelManager {
 
-    fun loadModel(model: Model)
+    fun loadModel(model: Model): Boolean
 
     fun sizeInTokens(text: String): Int
 

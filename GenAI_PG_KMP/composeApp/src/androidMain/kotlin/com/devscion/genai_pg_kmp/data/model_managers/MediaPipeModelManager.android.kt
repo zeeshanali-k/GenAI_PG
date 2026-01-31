@@ -26,21 +26,26 @@ class MediaPipeModelManager(
     private var llmInference: LlmInference? = null
 
 
-    override suspend fun loadModel(model: Model) {
+    override suspend fun loadModel(model: Model): Boolean {
         val modelPath = model.modelPath(context)
         Log.d("MediaPipeModelManager", "modelPath -> $modelPath")
         if (modelPath.isEmpty()) {
-            return
+            return false
         }
-        withContext(Dispatchers.IO) {
-            val taskOptions = LlmInference.LlmInferenceOptions.builder()
-                .setModelPath(modelPath)
-                .setMaxTopK(model.topK)
-                .setMaxTokens(model.maxTokens)
-                .setPreferredBackend(model.backend.toMediaPipeBackend())
-                .build()
-            llmInference = LlmInference.createFromOptions(context, taskOptions)
-            createSession(model)
+        return withContext(Dispatchers.IO) {
+            try {
+                val taskOptions = LlmInference.LlmInferenceOptions.builder()
+                    .setModelPath(modelPath)
+                    .setMaxTopK(model.topK)
+                    .setMaxTokens(model.maxTokens)
+                    .setPreferredBackend(model.backend.toMediaPipeBackend())
+                    .build()
+                llmInference = LlmInference.createFromOptions(context, taskOptions)
+                createSession(model)
+                true
+            } catch (_: Exception) {
+                false
+            }
         }
     }
 

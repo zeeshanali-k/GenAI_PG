@@ -31,30 +31,35 @@ class LiteRTLM_ModelManager(
     override var systemMessage: String? = null
     private var engine: Engine? = null
 
-    override suspend fun loadModel(model: Model) {
-        withContext(Dispatchers.IO) {
-            val engineConfig = EngineConfig(
-                modelPath = model.modelPath(context),
-                backend = model.backend.toLiteRTLMBackend(),
-                maxNumTokens = model.maxTokens,
-                // optional: Pick a writable dir. This can improve 2nd load time.
-                // cacheDir = "/tmp/" or context.cacheDir.path (for Android)
-            )
-            engine = Engine(engineConfig)
-            engine?.initialize()
-            val conversationConfig = ConversationConfig(
-                systemMessage = systemMessage?.let {
-                    Message.model(Contents.of(Content.Text(it)))
-                },
-                samplerConfig = SamplerConfig(
-                    topK = model.topK,
-                    topP = model.topP.toDouble(),
-                    temperature = model.temperature.toDouble(),
-                    seed = model.randomSeed,
-                ),
-            )
+    override suspend fun loadModel(model: Model): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                val engineConfig = EngineConfig(
+                    modelPath = model.modelPath(context),
+                    backend = model.backend.toLiteRTLMBackend(),
+                    maxNumTokens = model.maxTokens,
+                    // optional: Pick a writable dir. This can improve 2nd load time.
+                    // cacheDir = "/tmp/" or context.cacheDir.path (for Android)
+                )
+                engine = Engine(engineConfig)
+                engine?.initialize()
+                val conversationConfig = ConversationConfig(
+                    systemMessage = systemMessage?.let {
+                        Message.model(Contents.of(Content.Text(it)))
+                    },
+                    samplerConfig = SamplerConfig(
+                        topK = model.topK,
+                        topP = model.topP.toDouble(),
+                        temperature = model.temperature.toDouble(),
+                        seed = model.randomSeed,
+                    ),
+                )
 
-            conversation = engine?.createConversation(conversationConfig)
+                conversation = engine?.createConversation(conversationConfig)
+                true
+            } catch (_: Exception) {
+                false
+            }
         }
     }
 

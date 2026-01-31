@@ -29,6 +29,7 @@ data class ModelManagerState(
 sealed class ModelManagerError {
     data object Initial : ModelManagerError()
     data object InvalidRuntime : ModelManagerError()
+    data object InvalidModel : ModelManagerError()
     data object FailedToLoadModel : ModelManagerError()
 }
 

@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -22,6 +21,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,8 +37,9 @@ import com.devscion.genai_pg_kmp.domain.model.Model
 import com.devscion.genai_pg_kmp.domain.model.ModelManagerOption
 import com.devscion.genai_pg_kmp.ui.components.ChatBubble
 import com.devscion.genai_pg_kmp.ui.components.ChatInput
-import com.devscion.genai_pg_kmp.ui.components.OptionSelectionDialog
 import com.devscion.genai_pg_kmp.ui.components.SelectionButton
+import com.devscion.genai_pg_kmp.ui.dialogs.ErrorMessageDialog
+import com.devscion.genai_pg_kmp.ui.dialogs.OptionSelectionDialog
 import org.koin.compose.viewmodel.koinViewModel
 
 
@@ -47,15 +52,17 @@ fun ChatScreen(
     val focusManager = LocalFocusManager.current
     Scaffold(
         modifier.fillMaxSize()
-            .navigationBarsPadding(),
+//            .navigationBarsPadding(),
     ) {
+//        Column(
+//            Modifier.fillMaxSize()
+//        ) {
+
         (uiState as? ChatUIState.Success)?.ChatHistoryContent(
             Modifier
                 .fillMaxSize()
-                .padding(it),
+                .padding(top = it.calculateTopPadding(), bottom = it.calculateBottomPadding()),
             inputFieldState = viewModel.inputFieldState,
-            onToggleRuntimeSelection = viewModel::toggleManagerSelection,
-            onRuntimeSelected = viewModel::onRuntimeSelected,
             onSendClick = {
                 if (viewModel.inputFieldState.text.isNotEmpty()) {
                     focusManager.clearFocus(force = true)
@@ -64,11 +71,20 @@ fun ChatScreen(
             },
             onAttachMediaClick = viewModel::onAttachMedia,
             toggleManagerSelection = viewModel::toggleManagerSelection,
-            onModelSelected = viewModel::onLLMSelected,
             onToggleModelSelection = viewModel::toggleModelSelection,
             onStopClick = viewModel::stopGeneratingResponse,
         )
+
+
+        (uiState as? ChatUIState.Success)?.ChatScreenDialogs(
+            onToggleRuntimeSelection = viewModel::toggleManagerSelection,
+            onRuntimeSelected = viewModel::onRuntimeSelected,
+            onModelSelected = viewModel::onLLMSelected,
+            onToggleModelSelection = viewModel::toggleModelSelection,
+            onResetError = viewModel::resetError,
+        )
     }
+//    }
 }
 
 
@@ -76,14 +92,11 @@ fun ChatScreen(
 fun ChatUIState.Success.ChatHistoryContent(
     modifier: Modifier,
     inputFieldState: TextFieldState,
-    onToggleRuntimeSelection: () -> Unit,
     onToggleModelSelection: () -> Unit,
     onAttachMediaClick: () -> Unit,
     onSendClick: () -> Unit,
     onStopClick: () -> Unit,
     toggleManagerSelection: () -> Unit,
-    onRuntimeSelected: (ModelManagerOption) -> Unit,
-    onModelSelected: (Model) -> Unit,
 ) {
     Column(
         modifier
@@ -91,6 +104,7 @@ fun ChatUIState.Success.ChatHistoryContent(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(
+            modifier = Modifier,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             SelectionButton(
@@ -104,7 +118,7 @@ fun ChatUIState.Success.ChatHistoryContent(
                 modifier = Modifier.weight(1f)
             ) {
                 SelectionButton(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxWidth(),
                     title = if (modelManagerState.selectedLLM == null && modelManagerState.llmList.isNullOrEmpty()) "Unavailable"
                     else modelManagerState.selectedLLM?.name ?: "Select LLM",
                     isSelected = false,
@@ -113,7 +127,7 @@ fun ChatUIState.Success.ChatHistoryContent(
             }
         }
         LazyColumn(
-            modifier.fillMaxWidth()
+            Modifier.fillMaxWidth()
                 .weight(1f)
                 .background(
                     MaterialTheme.colorScheme.surfaceContainer,
@@ -159,6 +173,16 @@ fun ChatUIState.Success.ChatHistoryContent(
 
     }
 
+}
+
+@Composable
+fun ChatUIState.Success.ChatScreenDialogs(
+    onToggleRuntimeSelection: () -> Unit,
+    onRuntimeSelected: (ModelManagerOption) -> Unit,
+    onModelSelected: (Model) -> Unit,
+    onToggleModelSelection: () -> Unit,
+    onResetError: () -> Unit,
+) {
     if (modelManagerState.showManagerSelection) {
         OptionSelectionDialog(
             title = "Select Runtime",
@@ -205,6 +229,45 @@ fun ChatUIState.Success.ChatHistoryContent(
             },
             getTitle = { name },
             isSelected = { this == it },
+        )
+    }
+
+    var title by rememberSaveable() {
+        mutableStateOf<String?>(null)
+    }
+    var message by rememberSaveable() {
+        mutableStateOf<String?>(null)
+    }
+
+    LaunchedEffect(modelManagerState.modelManagerError) {
+        when (modelManagerState.modelManagerError) {
+            ModelManagerError.FailedToLoadModel -> {
+                title = "Failed to load model"
+                message = "Verify if you have placed the model in correct directory"
+            }
+
+            ModelManagerError.Initial -> {
+                title = null
+                message = null
+            }
+
+            ModelManagerError.InvalidModel -> {
+                title = "Invalid Model Selected"
+                message = "You must select a valid model before starting the chat"
+            }
+
+            ModelManagerError.InvalidRuntime -> {
+                title = "Invalid Runtime"
+                message = "You must select a valid Runtime before starting the chat"
+            }
+        }
+    }
+
+    if (title.isNullOrEmpty().not() && message.isNullOrEmpty().not()) {
+        ErrorMessageDialog(
+            title = title!!,
+            message = message!!,
+            onDismiss = onResetError,
         )
     }
 }

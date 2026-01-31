@@ -62,7 +62,7 @@ fun ChatInput(
         Icon(
             Icons.Default.AddCircle,
             "",
-            modifier = Modifier.size(32.dp)
+            modifier = Modifier.size(42.dp)
                 .clip(RoundedCornerShape(Int.MAX_VALUE.dp))
                 .plainClickable(onAttachMediaClick)
                 .background(MaterialTheme.colorScheme.secondaryContainer)
@@ -73,7 +73,7 @@ fun ChatInput(
                 Icon(
                     Icons.AutoMirrored.Filled.Send,
                     "",
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(42.dp)
                         .clip(RoundedCornerShape(Int.MAX_VALUE.dp))
                         .plainClickable(onSendClick)
                         .background(MaterialTheme.colorScheme.secondaryContainer)
@@ -86,7 +86,7 @@ fun ChatInput(
                 Icon(
                     Icons.Default.Close,
                     "",
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(42.dp)
                         .clip(RoundedCornerShape(Int.MAX_VALUE.dp))
                         .plainClickable(onStopClick)
                         .background(MaterialTheme.colorScheme.secondaryContainer)

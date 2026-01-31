@@ -20,11 +20,12 @@ class MediaPipeModelManager(
 
     override var systemMessage: String? = null
 
-    override suspend fun loadModel(model: Model) {
+    override suspend fun loadModel(model: Model): Boolean {
         println("LLMResponse loadModel-> Loading Path")
-        withContext(Dispatchers.IO) {
-            swiftModelManager.loadModel(model)
+        return withContext(Dispatchers.IO) {
+            val isCompleted = swiftModelManager.loadModel(model)
             println("LLMResponse loadModel-> Loading completed")
+            return@withContext isCompleted
         }
     }
 

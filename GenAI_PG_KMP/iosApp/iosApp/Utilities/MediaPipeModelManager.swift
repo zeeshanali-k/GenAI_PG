@@ -33,7 +33,7 @@ class MediaPipeModelManager: SwiftModelManager {
         }
     }
 
-    func loadModel(model: Model) {
+    func loadModel(model: Model) -> Bool {
 
         print("model id-> \(model.id.deletingSuffix(".bin"))")
         guard let path = Bundle.main.path(forResource: model.id.deletingSuffix(".bin"),
@@ -51,10 +51,12 @@ class MediaPipeModelManager: SwiftModelManager {
             llmInference = try LlmInference(options: llmOptions)
             createSession(model)
             print("Loaded")
+            return true
         } catch {
             print("Failed to load")
             // You may choose to log or handle the error here
             llmInference = nil
+            return false
         }
     }
 

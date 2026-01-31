@@ -8,7 +8,7 @@ interface LLMModelManager {
 
     var systemMessage: String?
 
-    suspend fun loadModel(model: Model)
+    suspend fun loadModel(model: Model): Boolean
 
     fun close()
 
