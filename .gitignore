@@ -1,5 +1,9 @@
 *.iml
 .gradle
+**/build/
+xcuserdata
+!src/**/build/
+.kotlin
 .idea
 /local.properties
 /.idea/caches
@@ -14,3 +18,10 @@
 .externalNativeBuild
 .cxx
 local.properties
+GenAI_PG_KMP/composeApp/build
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+!*.xcodeproj/project.xcworkspace/
+!*.xcworkspace/contents.xcworkspacedata
+**/xcshareddata/WorkspaceSettings.xcsettings
