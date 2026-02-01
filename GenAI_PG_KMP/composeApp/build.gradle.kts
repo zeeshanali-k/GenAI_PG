@@ -51,6 +51,9 @@ kotlin {
             implementation(libs.koin.core)
             implementation(libs.koin.compose.viewmodel.navigation)
             implementation(libs.material.icons.core)
+            //Llamatik
+
+            implementation(libs.llamatik)
         }
 //        commonTest.dependencies {
 //            implementation(libs.kotlin.test)

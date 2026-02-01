@@ -3,10 +3,10 @@ package com.devscion.genai_pg_kmp.data.model_managers
 import android.content.Context
 import android.util.Log
 import com.devscion.genai_pg_kmp.domain.LLMModelManager
+import com.devscion.genai_pg_kmp.domain.LlamatikPathProvider
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
 import com.devscion.genai_pg_kmp.domain.model.InferenceBackend
 import com.devscion.genai_pg_kmp.domain.model.Model
-import com.devscion.genai_pg_kmp.utils.modelPath
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
 import com.google.mediapipe.tasks.genai.llminference.PromptTemplates
@@ -19,6 +19,7 @@ import kotlinx.coroutines.withContext
 
 class MediaPipeModelManager(
     private val context: Context,
+    private val llamatikPathProvider: LlamatikPathProvider,
 ) : LLMModelManager {
 
     override var systemMessage: String? = null
@@ -27,7 +28,7 @@ class MediaPipeModelManager(
 
 
     override suspend fun loadModel(model: Model): Boolean {
-        val modelPath = model.modelPath(context)
+        val modelPath = llamatikPathProvider.getPath(model.id) ?: return false
         Log.d("MediaPipeModelManager", "modelPath -> $modelPath")
         if (modelPath.isEmpty()) {
             return false

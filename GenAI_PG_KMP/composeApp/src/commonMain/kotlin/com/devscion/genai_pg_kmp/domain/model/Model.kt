@@ -29,9 +29,38 @@ data class Model(
 
                 ModelManagerRuntime.MEDIA_PIPE -> if (isIOS) MEDIA_PIPE_MODELS_IOS
                 else MEDIA_PIPE_MODELS
+
+                ModelManagerRuntime.LlamaTIK -> LlAMATIK_MODELS
             }
         }
 
+        private val LlAMATIK_MODELS = buildList {
+            val modelType = ModelManagerRuntime.LlamaTIK
+            add(
+                Model(
+                    id = "LFM2.5-1.2B-Thinking-Q8_0.gguf",
+                    name = "LFM2.5 1.2B",
+                    size = 1500,
+                    modelType = modelType,
+                ),
+            )
+            add(
+                Model(
+                    id = "phi-2.Q4_0.gguf",
+                    name = "phi-2 Q4_0",
+                    size = 1500,
+                    modelType = modelType,
+                ),
+            )
+            add(
+                Model(
+                    id = "Gemini-Nano-Gemmafied.Q3_K_M.gguf",
+                    name = "Gemini-Nano Q3",
+                    size = 1600,
+                    modelType = modelType,
+                )
+            )
+        }
         private val LITE_RT_LM_MODELS = buildList {
             val modelType = ModelManagerRuntime.LITE_RT_LM
             add(
@@ -230,7 +259,7 @@ data class Model(
                 )
             )
         }
-        private val ALL_MODELS_ANDROID = LITE_RT_LM_MODELS + MEDIA_PIPE_MODELS
+        private val ALL_MODELS_ANDROID = LITE_RT_LM_MODELS + MEDIA_PIPE_MODELS + LlAMATIK_MODELS
         private val ALL_MODELS_IOS = MEDIA_PIPE_MODELS_IOS
     }
 }

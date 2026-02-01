@@ -1,10 +1,16 @@
 package com.devscion.genai_pg_kmp.di
 
+import com.devscion.genai_pg_kmp.data.LlamatikModelManager
+import com.devscion.genai_pg_kmp.domain.LLMModelManager
+import com.devscion.genai_pg_kmp.domain.model.ModelManagerRuntime
 import com.devscion.genai_pg_kmp.ui.ChatViewModel
 import org.koin.core.KoinApplication
 import org.koin.core.context.startKoin
 import org.koin.core.module.Module
+import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.viewModelOf
+import org.koin.core.qualifier.named
+import org.koin.dsl.bind
 import org.koin.dsl.module
 
 
@@ -16,10 +22,16 @@ fun startKoin(platformConfig: KoinApplication.() -> Unit) {
         modules(
             platformKoinModule
                     + viewModelModule
+                    + modelManagerModule
         )
     }
 }
 
+val modelManagerModule = module {
+    factoryOf(::LlamatikModelManager) {
+        qualifier = named(ModelManagerRuntime.LlamaTIK)
+    } bind LLMModelManager::class
+}
 
 val viewModelModule = module {
     viewModelOf(::ChatViewModel)
