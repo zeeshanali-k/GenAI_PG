@@ -1,11 +1,10 @@
 package com.devscion.genai_pg_kmp.data.model_managers
 
-import android.content.Context
 import com.devscion.genai_pg_kmp.domain.LLMModelManager
+import com.devscion.genai_pg_kmp.domain.LlamatikPathProviderAndroid
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
 import com.devscion.genai_pg_kmp.domain.model.InferenceBackend
 import com.devscion.genai_pg_kmp.domain.model.Model
-import com.devscion.genai_pg_kmp.utils.modelPath
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
@@ -24,7 +23,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.withContext
 
 class LiteRTLM_ModelManager(
-    private val context: Context,
+    private val llamatikPathProviderAndroid: LlamatikPathProviderAndroid,
 ) : LLMModelManager {
 
     private var conversation: Conversation? = null
@@ -35,7 +34,8 @@ class LiteRTLM_ModelManager(
         return withContext(Dispatchers.IO) {
             try {
                 val engineConfig = EngineConfig(
-                    modelPath = model.modelPath(context),
+                    modelPath = llamatikPathProviderAndroid.getPath(model.id)
+                        ?: return@withContext false,
                     backend = model.backend.toLiteRTLMBackend(),
                     maxNumTokens = model.maxTokens,
                     // optional: Pick a writable dir. This can improve 2nd load time.

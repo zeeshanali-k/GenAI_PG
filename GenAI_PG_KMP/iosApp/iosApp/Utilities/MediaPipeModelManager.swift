@@ -39,7 +39,7 @@ class MediaPipeModelManager: SwiftModelManager {
         guard let path = Bundle.main.path(forResource: model.id.deletingSuffix(".bin"),
                                           ofType: "bin")
         else {
-            return
+            return false
         }
         print("path-> \(path)")
         let llmOptions = LlmInference.Options(modelPath: path)
