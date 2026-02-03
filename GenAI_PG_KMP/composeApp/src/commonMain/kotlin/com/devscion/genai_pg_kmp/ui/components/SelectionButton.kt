@@ -23,19 +23,20 @@ fun SelectionButton(
     Text(
         title,
         textAlign = TextAlign.Start,
-        modifier = modifier
-            .then(
-                if (isSelected) Modifier.border(
-                    1.dp,
-                    MaterialTheme.colorScheme.tertiaryContainer,
-                    MaterialTheme.shapes.medium
+        modifier =
+            modifier
+                .then(
+                    if (isSelected) Modifier.border(
+                        1.dp,
+                        MaterialTheme.colorScheme.tertiaryContainer,
+                        MaterialTheme.shapes.medium
+                    )
+                    else Modifier
                 )
-                else Modifier
-            )
-            .clip(MaterialTheme.shapes.medium)
-            .background(MaterialTheme.colorScheme.secondaryContainer)
-            .clickable(onClick = onClick)
-            .padding(9.dp)
+                .clip(MaterialTheme.shapes.medium)
+                .background(MaterialTheme.colorScheme.secondaryContainer)
+                .clickable(onClick = onClick)
+                .padding(9.dp)
     )
 }
 

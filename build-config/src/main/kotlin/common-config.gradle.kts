@@ -6,6 +6,7 @@ plugins {
     id("com.android.kotlin.multiplatform.library")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.native.cocoapods")
+    id("org.jetbrains.kotlin.plugin.serialization")
 }
 
 kotlin {

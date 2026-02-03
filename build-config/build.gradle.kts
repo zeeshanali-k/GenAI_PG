@@ -10,6 +10,7 @@ dependencies {
     implementation(libs.plugins.composeMultiplatform.dependency)
     implementation(libs.plugins.androidLibrary.dependency)
     implementation(libs.plugins.kotlinCocoapods.dependency)
+    implementation(libs.plugins.serialization.dependency)
 }
 
 
