@@ -38,44 +38,69 @@ fun <T : Any> OptionSelectionDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
 
-        Column(
-            Modifier.fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .clip(MaterialTheme.shapes.medium)
-                .background(MaterialTheme.colorScheme.secondaryContainer)
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Spacer(Modifier)
-                Text(
-                    title, style = MaterialTheme.typography.bodyLarge,
-                )
-                Icon(
-                    Icons.Default.Close, "",
-                    modifier = Modifier.clickable(
-                        onClick = onDismiss,
-                        indication = null,
-                        interactionSource = null
-                    )
-                )
-            }
-            LazyColumn(Modifier.fillMaxWidth()) {
-                items(options) {
-                    SelectionButton(
-                        modifier = Modifier.fillMaxWidth(),
-                        title = it.getTitle(),
-                        isSelected = it.isSelected(selectedOption),
-                        onClick = {
-                            onRuntimeSelection(it)
-                        }
-                    )
-                }
+        OptionSelectionContent(
+            modifier = Modifier.fillMaxWidth(),
+            title,
+            onDismiss,
+            options,
+            getTitle,
+            isSelected,
+            selectedOption,
+            onRuntimeSelection
+        )
+    }
+}
 
+@Composable
+fun <T : Any> OptionSelectionContent(
+    modifier: Modifier = Modifier,
+    title: String,
+    onDismiss: () -> Unit,
+    options: List<T>,
+    getTitle: T.() -> String,
+    isSelected: T.(T?) -> Boolean,
+    selectedOption: T?,
+    onRuntimeSelection: (T) -> Unit
+) {
+
+    Column(
+        modifier
+            .padding(horizontal = 9.dp)
+            .clip(MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.secondaryContainer)
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    )
+    {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Spacer(Modifier)
+            Text(
+                title, style = MaterialTheme.typography.bodyLarge,
+            )
+            Icon(
+                Icons.Default.Close, "",
+                modifier = Modifier.clickable(
+                    onClick = onDismiss,
+                    indication = null,
+                    interactionSource = null
+                )
+            )
+        }
+        LazyColumn(Modifier.fillMaxWidth()) {
+            items(options) {
+                SelectionButton(
+                    modifier = Modifier.fillMaxWidth(),
+                    title = it.getTitle(),
+                    isSelected = it.isSelected(selectedOption),
+                    onClick = {
+                        onRuntimeSelection(it)
+                    }
+                )
             }
+
         }
     }
 }
