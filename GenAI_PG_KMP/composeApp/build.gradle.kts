@@ -33,6 +33,9 @@ kotlin {
             implementation(libs.mediapipe.tasks.genai)
             //    LiteRT-LM
             implementation(libs.litertlm.android)
+            //  Google AI Edge RAG SDK (for MediaPipe & LiteRT-LM)
+            implementation(libs.localagents.rag)
+
 
             /** Gen AI Libraries **/
         }

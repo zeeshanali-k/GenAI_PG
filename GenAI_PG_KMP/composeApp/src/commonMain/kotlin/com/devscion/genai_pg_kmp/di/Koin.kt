@@ -1,8 +1,10 @@
 package com.devscion.genai_pg_kmp.di
 
 import com.devscion.genai_pg_kmp.data.LlamatikModelManager
+import com.devscion.genai_pg_kmp.data.rag.LlamatikRAGManager
 import com.devscion.genai_pg_kmp.domain.LLMModelManager
 import com.devscion.genai_pg_kmp.domain.model.ModelManagerRuntime
+import com.devscion.genai_pg_kmp.domain.rag.RAGManager
 import com.devscion.genai_pg_kmp.ui.ChatViewModel
 import org.koin.core.KoinApplication
 import org.koin.core.context.startKoin
@@ -28,9 +30,13 @@ fun startKoin(platformConfig: KoinApplication.() -> Unit) {
 }
 
 val modelManagerModule = module {
-    factoryOf(::LlamatikModelManager) {
-        qualifier = named(ModelManagerRuntime.LlamaTIK)
-    } bind LLMModelManager::class
+    // RAG manager for Llamatik
+    factoryOf(::LlamatikRAGManager) bind RAGManager::class
+    
+    // Llamatik model manager with RAG support
+    factory<LLMModelManager>(named(ModelManagerRuntime.LlamaTIK)) {
+        LlamatikModelManager(get(), get())
+    }
 }
 
 val viewModelModule = module {

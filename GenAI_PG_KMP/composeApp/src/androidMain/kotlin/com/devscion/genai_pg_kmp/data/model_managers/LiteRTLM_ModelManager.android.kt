@@ -5,6 +5,7 @@ import com.devscion.genai_pg_kmp.domain.LlamatikPathProviderAndroid
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
 import com.devscion.genai_pg_kmp.domain.model.InferenceBackend
 import com.devscion.genai_pg_kmp.domain.model.Model
+import com.devscion.genai_pg_kmp.domain.rag.RAGManager
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
@@ -24,6 +25,7 @@ import kotlinx.coroutines.withContext
 
 class LiteRTLM_ModelManager(
     private val llamatikPathProviderAndroid: LlamatikPathProviderAndroid,
+    override var ragManager: RAGManager?
 ) : LLMModelManager {
 
     private var conversation: Conversation? = null

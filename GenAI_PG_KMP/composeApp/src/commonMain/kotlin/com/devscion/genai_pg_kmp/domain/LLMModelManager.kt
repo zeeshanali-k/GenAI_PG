@@ -2,6 +2,8 @@ package com.devscion.genai_pg_kmp.domain
 
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
 import com.devscion.genai_pg_kmp.domain.model.Model
+import com.devscion.genai_pg_kmp.domain.rag.RAGDocument
+import com.devscion.genai_pg_kmp.domain.rag.RAGManager
 import kotlinx.coroutines.flow.Flow
 
 interface LLMModelManager {
@@ -15,5 +17,33 @@ interface LLMModelManager {
     fun stopResponseGeneration()
 
     suspend fun sendPromptToLLM(inputPrompt: String): Flow<ChunkedModelResponse>
+
+    // RAG Support
+    var ragManager: RAGManager?
+    
+    suspend fun indexDocument(document: RAGDocument) {
+        ragManager?.indexDocument(document)
+    }
+    
+    suspend fun sendPromptWithRAG(inputPrompt: String, topK: Int = 3): Flow<ChunkedModelResponse> {
+        val context = ragManager?.retrieveContext(inputPrompt, topK) ?: ""
+        val augmentedPrompt = if (context.isNotEmpty()) {
+            buildPromptWithContext(inputPrompt, context)
+        } else {
+            inputPrompt
+        }
+        return sendPromptToLLM(augmentedPrompt)
+    }
+    
+    fun buildPromptWithContext(prompt: String, context: String): String {
+        return """
+            |Context Information:
+            |$context
+            |
+            |Question: $prompt
+            |
+            |Answer the question based on the provided context. If the context doesn't contain relevant information, say so.
+        """.trimMargin()
+    }
 
 }

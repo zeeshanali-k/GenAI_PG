@@ -5,17 +5,21 @@ import com.devscion.genai_pg_kmp.domain.LLMModelManager
 import com.devscion.genai_pg_kmp.domain.LlamatikPathProvider
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
 import com.devscion.genai_pg_kmp.domain.model.Model
+import com.devscion.genai_pg_kmp.domain.rag.RAGManager
 import com.llamatik.library.platform.GenStream
 import com.llamatik.library.platform.LlamaBridge
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class LlamatikModelManager(
     private val llamatikPathProvider: LlamatikPathProvider,
+    override var ragManager: RAGManager?
 ) : LLMModelManager {
     override var systemMessage: String? = null
 
@@ -41,6 +45,13 @@ class LlamatikModelManager(
 
     override fun close() {
         LlamaBridge.shutdown()
+        ragManager?.let {
+            // Clear RAG index when closing
+            //TODO: remove GlobalScope
+            GlobalScope.launch(Dispatchers.IO) {
+                it.clearIndex()
+            }
+        }
     }
 
     override fun stopResponseGeneration() {

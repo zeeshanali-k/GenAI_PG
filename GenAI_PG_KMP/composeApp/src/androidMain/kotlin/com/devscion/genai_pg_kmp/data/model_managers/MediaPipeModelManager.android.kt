@@ -2,30 +2,35 @@ package com.devscion.genai_pg_kmp.data.model_managers
 
 import android.content.Context
 import android.util.Log
+import com.devscion.genai_pg_kmp.data.rag.AIEdgeRAGManager
 import com.devscion.genai_pg_kmp.domain.LLMModelManager
 import com.devscion.genai_pg_kmp.domain.LlamatikPathProvider
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
 import com.devscion.genai_pg_kmp.domain.model.InferenceBackend
 import com.devscion.genai_pg_kmp.domain.model.Model
+import com.devscion.genai_pg_kmp.domain.rag.RAGManager
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
 import com.google.mediapipe.tasks.genai.llminference.PromptTemplates
+import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.channels.onFailure
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class MediaPipeModelManager(
     private val context: Context,
     private val llamatikPathProvider: LlamatikPathProvider,
+    override var ragManager: RAGManager?
 ) : LLMModelManager {
 
     override var systemMessage: String? = null
     private var inferenceSession: LlmInferenceSession? = null
     private var llmInference: LlmInference? = null
-
 
     override suspend fun loadModel(model: Model): Boolean {
         val modelPath = llamatikPathProvider.getPath(model.id) ?: return false
@@ -105,12 +110,19 @@ class MediaPipeModelManager(
             }
         }
 
+    @OptIn(DelicateCoroutinesApi::class)
     override fun close() {
         inferenceSession?.cancelGenerateResponseAsync()
         inferenceSession?.close()
         inferenceSession = null
         llmInference?.close()
         llmInference = null
+
+        // Clean up RAG manager
+        GlobalScope.launch {//TODO: remove GlobalScope
+            (ragManager as? AIEdgeRAGManager)?.clearIndex()
+            ragManager = null
+        }
     }
 
     override fun stopResponseGeneration() {
