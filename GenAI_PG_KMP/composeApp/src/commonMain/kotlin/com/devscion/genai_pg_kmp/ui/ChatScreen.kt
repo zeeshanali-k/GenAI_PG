@@ -2,6 +2,7 @@
 
 package com.devscion.genai_pg_kmp.ui
 
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -18,7 +19,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -34,6 +35,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -45,6 +48,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.devscion.genai_pg_kmp.LocalAnimatedVisibilityScope
 import com.devscion.genai_pg_kmp.LocalTransitionScope
+import com.devscion.genai_pg_kmp.domain.FilePicker
 import com.devscion.genai_pg_kmp.domain.model.Model
 import com.devscion.genai_pg_kmp.domain.model.ModelManagerOption
 import com.devscion.genai_pg_kmp.ui.components.ChatBubble
@@ -52,16 +56,39 @@ import com.devscion.genai_pg_kmp.ui.components.ChatInput
 import com.devscion.genai_pg_kmp.ui.components.SelectionButton
 import com.devscion.genai_pg_kmp.ui.dialogs.ErrorMessageDialog
 import com.devscion.genai_pg_kmp.ui.dialogs.OptionSelectionContent
+import com.devscion.genai_pg_kmp.ui.state.ChatHistory
+import com.devscion.genai_pg_kmp.ui.state.ChatUIState
+import com.devscion.genai_pg_kmp.ui.state.DocumentsState
+import com.devscion.genai_pg_kmp.ui.state.ModelManagerError
+import com.devscion.genai_pg_kmp.ui.state.ModelManagerState
+import dev.icerock.moko.permissions.compose.BindEffect
+import dev.icerock.moko.permissions.compose.rememberPermissionsControllerFactory
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
-
 
 @Composable
 fun ChatScreen(
     modifier: Modifier = Modifier,
     viewModel: ChatViewModel = koinViewModel(),
 ) {
+    val filePicker = koinInject<FilePicker>()
+    BindFilePicker(filePicker)
+
+    val factory = rememberPermissionsControllerFactory()
+    val controller = remember(factory) { factory.createPermissionsController() }
+
+    LaunchedEffect(controller) {
+        viewModel.setPermissionsController(controller)
+    }
+
+    BindEffect(controller)
+
     val uiState = viewModel.uiState.collectAsStateWithLifecycle().value
     val focusManager = LocalFocusManager.current
+
     Scaffold(
         modifier.fillMaxSize()
 //            .navigationBarsPadding(),
@@ -94,6 +121,8 @@ fun ChatScreen(
                 onModelSelected = viewModel::onLLMSelected,
                 modelManagerState = it.modelManagerState,
                 chatHistory = it.chatHistory,
+                documentsState = it.documentsState,
+                onRemoveDocument = viewModel::removeDocument,
             )
         }
 
@@ -120,36 +149,34 @@ fun ChatHistoryContent(
     onToggleRuntimeSelection: () -> Unit,
     onModelSelected: (Model) -> Unit,
     onRuntimeSelected: (ModelManagerOption) -> Unit,
+    documentsState: DocumentsState,
+    onRemoveDocument: (String) -> Unit,
 ) {
-    Box(modifier) {
-        SharedTransitionLayout(Modifier.fillMaxSize()) {
-            CompositionLocalProvider(LocalTransitionScope provides this) {
-                AnimatedContent(
-                    modelManagerState,
-                    modifier = Modifier.fillMaxSize(),
-                    transitionSpec = {
-                        EnterTransition.None togetherWith ExitTransition.None
-                    }
-                ) { mmState ->
-                    CompositionLocalProvider(LocalAnimatedVisibilityScope provides this) {
-
-                        Column(
-                            Modifier.fillMaxSize()
-                                .padding(horizontal = 12.dp)
-                                .skipToLookaheadSize(),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        )
-                        {
-                            Row(
-                                modifier = Modifier
-                                    .animateContentSize(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            ) {
+    SharedTransitionLayout(modifier) {
+        CompositionLocalProvider(LocalTransitionScope provides this) {
+            Box(Modifier.fillMaxSize()) {
+                Column(
+                    Modifier.fillMaxSize()
+                        .padding(horizontal = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .animateContentSize(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        // Runtime Selection Button
+                        AnimatedContent(
+                            modifier = Modifier.weight(1f),
+                            targetState = modelManagerState.showManagerSelection,
+                            transitionSpec = { EnterTransition.None togetherWith ExitTransition.None }
+                        ) { showManagerSelection ->
+                            CompositionLocalProvider(LocalAnimatedVisibilityScope provides this) {
                                 SelectionButton(
                                     modifier = with(LocalTransitionScope.current!!) {
-                                        Modifier.weight(1f)
+                                        Modifier.fillMaxWidth()
                                             .then(
-                                                if (mmState.showManagerSelection.not())
+                                                if (showManagerSelection.not())
                                                     Modifier.sharedBounds(
                                                         rememberSharedContentState("optionSelectionContent1"),
                                                         LocalAnimatedVisibilityScope.current!!,
@@ -163,93 +190,114 @@ fun ChatHistoryContent(
                                     isSelected = false,
                                     onClick = toggleManagerSelection,
                                 )
-                                if (modelManagerState.selectedManager != null) {
+                            }
+                        }
+
+                        // Model Selection Button
+                        if (modelManagerState.selectedManager != null) {
+                            AnimatedContent(
+                                modifier = Modifier.weight(1f),
+                                targetState = modelManagerState.showModelSelection,
+                                transitionSpec = { EnterTransition.None togetherWith ExitTransition.None }
+                            ) { showModelSelection ->
+                                CompositionLocalProvider(LocalAnimatedVisibilityScope provides this) {
                                     SelectionButton(
-                                        modifier = Modifier.weight(1f).then(
-                                            if (modelManagerState.showModelSelection.not())
-                                                Modifier.sharedBounds(
-                                                    rememberSharedContentState("optionSelectionContent2"),
-                                                    LocalAnimatedVisibilityScope.current!!,
-                                                    resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(),
+                                        modifier = with(LocalTransitionScope.current!!) {
+                                            Modifier.fillMaxWidth()
+                                                .then(
+                                                    if (showModelSelection.not())
+                                                        Modifier.sharedBounds(
+                                                            rememberSharedContentState("optionSelectionContent2"),
+                                                            LocalAnimatedVisibilityScope.current!!,
+                                                            resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(),
+                                                        )
+                                                    else Modifier
                                                 )
-                                            else Modifier
-                                        ),
+                                        },
                                         title = if (modelManagerState.selectedLLM == null && modelManagerState.llmList.isNullOrEmpty()) "Unavailable"
                                         else modelManagerState.selectedLLM?.name
-                                            ?: "Select LLM",
+                                            ?: "Select Model",
                                         isSelected = false,
                                         onClick = onToggleModelSelection,
                                     )
-                                } else {
-                                    Spacer(Modifier.weight(1f))
                                 }
                             }
-                            LazyColumn(
-                                Modifier.fillMaxWidth()
-                                    .weight(1f)
-                                    .background(
-                                        MaterialTheme.colorScheme.surfaceContainer,
-                                        MaterialTheme.shapes.medium
-                                    )
-                                    .skipToLookaheadSize(),
-                                state = rememberLazyListState(),
-                                verticalArrangement = Arrangement.spacedBy(20.dp),
-                                contentPadding = PaddingValues(
-                                    vertical = 12.dp
-                                )
+                        } else {
+                            Spacer(Modifier.weight(1f))
+                        }
+                    }
+
+                    LazyColumn(
+                        Modifier.fillMaxWidth()
+                            .weight(1f)
+                            .background(
+                                MaterialTheme.colorScheme.surfaceContainer,
+                                MaterialTheme.shapes.medium
+                            ),
+                        state = rememberLazyListState(),
+                        verticalArrangement = Arrangement.spacedBy(20.dp),
+                        contentPadding = PaddingValues(
+                            vertical = 12.dp
+                        )
+                    ) {
+                        itemsIndexed(
+                            chatHistory.history,
+                            key = { _, i -> i.id }) { index, item ->
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalAlignment = if (item.isLLMResponse) Alignment.Start
+                                else Alignment.End,
                             ) {
-                                itemsIndexed(
-                                    chatHistory.history,
-                                    key = { _, i -> i.id }) { index, item ->
+                                ChatBubble(
+                                    modifier = Modifier.fillMaxWidth(0.8f),
+                                    index = index,
+                                    isSent = item.isLLMResponse.not()
+                                ) {
                                     Column(
-                                        modifier = Modifier.fillMaxWidth(),
+                                        Modifier
+                                            .padding(12.dp),
                                         horizontalAlignment = if (item.isLLMResponse) Alignment.Start
                                         else Alignment.End,
                                     ) {
-                                        ChatBubble(
-                                            modifier = Modifier.fillMaxWidth(0.8f),
-                                            index = index,
-                                            isSent = item.isLLMResponse.not()
-                                        ) {
-                                            Column(
-                                                Modifier
-                                                    .padding(12.dp),
-                                                horizontalAlignment = if (item.isLLMResponse) Alignment.Start
-                                                else Alignment.End,
-                                            ) {
-                                                Text(item.message)
-                                            }
-                                        }
+                                        Text(item.message)
                                     }
                                 }
                             }
-
-                            ChatInput(
-                                state = inputFieldState,
-                                isGeneratingResponse = modelManagerState.isGeneratingResponse,
-                                onAttachMediaClick = onAttachMediaClick,
-                                onSendClick = onSendClick,
-                                onStopClick = onStopClick,
-                            )
-
                         }
+                    }
 
-                        Row(
-                            Modifier
-                                .align(Alignment.TopCenter)
-                        ) {
-                            if (mmState.showManagerSelection) {
+                    ChatInput(
+                        state = inputFieldState,
+                        documentsState = documentsState,
+                        isGeneratingResponse = modelManagerState.isGeneratingResponse,
+                        onAttachMediaClick = onAttachMediaClick,
+                        onRemoveDocument = onRemoveDocument,
+                        onSendClick = onSendClick,
+                        onStopClick = onStopClick,
+                    )
+                }
+
+                Row(
+                    Modifier
+                        .align(Alignment.TopCenter)
+                ) {
+                    val scope = rememberCoroutineScope()
+                    // Manager selection dialog
+                    AnimatedContent(
+                        targetState = modelManagerState.showManagerSelection,
+                        transitionSpec = { EnterTransition.None togetherWith ExitTransition.None }
+                    ) { showManagerSelection ->
+                        CompositionLocalProvider(LocalAnimatedVisibilityScope provides this) {
+                            if (showManagerSelection) {
                                 OptionSelectionContent(
                                     modifier = with(LocalTransitionScope.current!!) {
                                         Modifier
                                             .weight(1f)
-                                            .height(200.dp)
                                             .sharedBounds(
                                                 rememberSharedContentState("optionSelectionContent1"),
                                                 LocalAnimatedVisibilityScope.current!!,
                                                 resizeMode = SharedTransitionScope.ResizeMode.RemeasureToBounds,
                                             )
-
                                     },
                                     title = "Select Runtime",
                                     options = modelManagerState.modelManagerOptions,
@@ -257,31 +305,42 @@ fun ChatHistoryContent(
                                     onDismiss = onToggleRuntimeSelection,
                                     onRuntimeSelection = {
                                         onRuntimeSelected(it)
-                                        onToggleModelSelection()
                                         onToggleRuntimeSelection()
+                                        scope.launch(Dispatchers.Main.immediate) {
+                                            delay(100)
+                                            onToggleModelSelection()
+                                        }
                                     },
                                     getTitle = { name },
                                     isSelected = { this == it },
                                 )
-                            } else Spacer(Modifier.weight(1f))
+                            } else {
+                                Spacer(Modifier.weight(1f))
+                            }
+                        }
+                    }
 
-                            if (mmState.showModelSelection
-                                && modelManagerState.llmList.isNullOrEmpty().not()
-                            ) {
+                    // Model selection dialog
+                    AnimatedContent(
+                        targetState = modelManagerState.showModelSelection && modelManagerState.llmList.isNullOrEmpty()
+                            .not(),
+                        transitionSpec = { EnterTransition.None togetherWith ExitTransition.None }
+                    ) { showModelSelection ->
+                        CompositionLocalProvider(LocalAnimatedVisibilityScope provides this) {
+                            if (showModelSelection) {
                                 OptionSelectionContent(
                                     modifier = with(LocalTransitionScope.current!!) {
                                         Modifier
                                             .weight(1f)
-                                            .height(300.dp)
+                                            .heightIn(max = 500.dp)
                                             .sharedBounds(
                                                 rememberSharedContentState("optionSelectionContent2"),
                                                 LocalAnimatedVisibilityScope.current!!,
                                                 resizeMode = SharedTransitionScope.ResizeMode.RemeasureToBounds,
                                             )
-
                                     },
                                     title = "Select Model",
-                                    options = modelManagerState.llmList,
+                                    options = modelManagerState.llmList ?: emptyList(),
                                     selectedOption = modelManagerState.selectedLLM,
                                     onDismiss = onToggleModelSelection,
                                     onRuntimeSelection = {
@@ -291,8 +350,9 @@ fun ChatHistoryContent(
                                     getTitle = { name },
                                     isSelected = { this == it },
                                 )
-                            } else Spacer(Modifier.weight(1f))
-
+                            } else {
+                                Spacer(Modifier.weight(1f))
+                            }
                         }
                     }
                 }

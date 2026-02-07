@@ -1,4 +1,4 @@
-package com.devscion.genai_pg_kmp.ui
+package com.devscion.genai_pg_kmp.ui.state
 
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.devscion.genai_pg_kmp.domain.model.ChatHistoryItem
@@ -11,6 +11,7 @@ sealed class ChatUIState {
     data class Success(
         val chatHistory: ChatHistory,
         val modelManagerState: ModelManagerState,
+        val documentsState: DocumentsState = DocumentsState(),
     ) : ChatUIState()
 }
 
