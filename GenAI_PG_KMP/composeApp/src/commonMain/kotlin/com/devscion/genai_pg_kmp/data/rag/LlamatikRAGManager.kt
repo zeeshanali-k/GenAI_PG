@@ -21,6 +21,7 @@ class LlamatikRAGManager : RAGManager {
 
     override suspend fun loadEmbeddingModel(modelPath: String, tokenizerPath: String): Boolean =
         withContext(Dispatchers.IO) {
+            if (isModelLoaded) return@withContext true
             try {
                 logger.d { "Loading embedding model: $modelPath" }
                 isModelLoaded = LlamaBridge.initModel(modelPath)

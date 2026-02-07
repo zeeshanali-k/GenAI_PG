@@ -10,6 +10,7 @@ import com.google.ai.edge.localagents.rag.memory.DefaultSemanticTextMemory
 import com.google.ai.edge.localagents.rag.memory.SqliteVectorStore
 import com.google.ai.edge.localagents.rag.models.Embedder
 import com.google.ai.edge.localagents.rag.models.GeckoEmbeddingModel
+import com.google.ai.edge.localagents.rag.models.LanguageModelRequest
 import com.google.ai.edge.localagents.rag.models.MediaPipeLlmBackend
 import com.google.ai.edge.localagents.rag.prompt.PromptBuilder
 import com.google.ai.edge.localagents.rag.retrieval.RetrievalConfig
@@ -20,6 +21,7 @@ import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Optional
+import java.util.concurrent.Executors
 import kotlin.jvm.optionals.getOrNull
 
 /**
@@ -34,7 +36,7 @@ import kotlin.jvm.optionals.getOrNull
 class AIEdgeRAGManager() : RAGManager {
 
 
-    private var mediaPipeLanguageModel: MediaPipeLlmBackend? = null
+    private var mediaPipeLlmBackend: MediaPipeLlmBackend? = null
     private var chainConfig: ChainConfig<String>? = null
 
     private var retrievalChain: RetrievalChain<String>? = null
@@ -47,21 +49,28 @@ class AIEdgeRAGManager() : RAGManager {
 
 
     /**
-     * loadMediaPipeLanguageModel must be called before calling loadEmbeddingModel
+     * **loadMediaPipeLlmBackend** must be called before calling **loadEmbeddingModel**
      * @see loadEmbeddingModel
      * */
-    suspend fun loadMediaPipeLanguageModel(
+    suspend fun loadMediaPipeLlmBackend(
         context: Context,
         mediaPipeLanguageModelOptions: LlmInference.LlmInferenceOptions,
         mediaPipeLanguageModelSessionOptions: LlmInferenceSession.LlmInferenceSessionOptions,
     ): Boolean = withContext(Dispatchers.IO) {
         try {
             logger.d { "Loading MediaPipeLanguageModel" }
-            mediaPipeLanguageModel = MediaPipeLlmBackend(
+            mediaPipeLlmBackend = MediaPipeLlmBackend(
                 context, mediaPipeLanguageModelOptions,
                 mediaPipeLanguageModelSessionOptions
             )
-            return@withContext mediaPipeLanguageModel!!.initialize().get()
+            mediaPipeLlmBackend!!.generateResponse(
+                LanguageModelRequest.builder()
+                    .setPrompt("")
+                    .build(),
+                Executors.newSingleThreadExecutor(),
+                { _, _ -> }
+            )
+            return@withContext mediaPipeLlmBackend!!.initialize().get()
         } catch (e: Exception) {
             logger.e(e) { "Exception while loading MediaPipeLanguageModel" }
             return@withContext false
@@ -69,22 +78,22 @@ class AIEdgeRAGManager() : RAGManager {
     }
 
     override suspend fun loadEmbeddingModel(
-        modelPath: String,
+        embeddingModelPath: String,
         tokenizerPath: String,
     ): Boolean = withContext(Dispatchers.IO) {
         try {
-            logger.d { "Loading embedding model: $modelPath" }
+            logger.d { "Loading embedding model: $embeddingModelPath" }
+            if (embedder != null && chainConfig != null && retrievalChain != null) {
+                return@withContext true
+            }
             embedder = GeckoEmbeddingModel(
-                modelPath,
+                embeddingModelPath,
                 Optional.of(tokenizerPath),
                 false
             )
             chainConfig = ChainConfig.create(
-                mediaPipeLanguageModel, PromptBuilder(""),
-                DefaultSemanticTextMemory(
-                    // Gecko embedding model dimension is 768
-                    SqliteVectorStore(768), embedder
-                )
+                mediaPipeLlmBackend, PromptBuilder(""),
+                getSemanticMemory()
             )
             retrievalChain = RetrievalChain(chainConfig!!)
             logger.d { "Embedding model placeholder loaded" }
@@ -95,6 +104,11 @@ class AIEdgeRAGManager() : RAGManager {
             false
         }
     }
+
+    private fun getSemanticMemory() = DefaultSemanticTextMemory(
+        // Gecko embedding model dimension is 768
+        SqliteVectorStore(768), embedder
+    )
 
     override suspend fun indexDocument(document: RAGDocument) {
         withContext(Dispatchers.IO) {
@@ -133,6 +147,9 @@ class AIEdgeRAGManager() : RAGManager {
                     ""
                 } else {
                     retrievedResponse.entities.mapIndexed { index, chunk ->
+                        logger.d {
+                            "retrievedResponse-> $index ${chunk.data}"
+                        }
                         "[Context ${index + 1}]\n${chunk.data}"
                     }.joinToString("\n\n")
                 }
@@ -143,6 +160,11 @@ class AIEdgeRAGManager() : RAGManager {
         }
 
     override suspend fun clearIndex() {
+        chainConfig = chainConfig!!.toBuilder().setSemanticMemory(
+            getSemanticMemory()
+        )
+            .build()
+        //TODO: test
         logger.d { "Cleared RAG index" }
     }
 

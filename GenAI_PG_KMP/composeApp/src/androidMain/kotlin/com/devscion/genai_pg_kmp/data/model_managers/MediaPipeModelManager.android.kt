@@ -25,9 +25,13 @@ import kotlinx.coroutines.withContext
 class MediaPipeModelManager(
     private val context: Context,
     private val llamatikPathProvider: LlamatikPathProvider,
-    override var ragManager: RAGManager?
+    override var ragManager: RAGManager
 ) : LLMModelManager {
 
+    private val sessionOptions: LlmInferenceSession.LlmInferenceSessionOptions.Builder =
+        LlmInferenceSession.LlmInferenceSessionOptions.builder()
+    val llmInferenceOptions: LlmInference.LlmInferenceOptions.Builder =
+        LlmInference.LlmInferenceOptions.builder()
     override var systemMessage: String? = null
     private var inferenceSession: LlmInferenceSession? = null
     private var llmInference: LlmInference? = null
@@ -40,13 +44,14 @@ class MediaPipeModelManager(
         }
         return withContext(Dispatchers.IO) {
             try {
-                val taskOptions = LlmInference.LlmInferenceOptions.builder()
-                    .setModelPath(modelPath)
+                llmInferenceOptions.setModelPath(modelPath)
                     .setMaxTopK(model.topK)
                     .setMaxTokens(model.maxTokens)
                     .setPreferredBackend(model.backend.toMediaPipeBackend())
-                    .build()
-                llmInference = LlmInference.createFromOptions(context, taskOptions)
+                llmInference = LlmInference.createFromOptions(
+                    context,
+                    llmInferenceOptions.build()
+                )
                 createSession(model)
                 true
             } catch (_: Exception) {
@@ -56,7 +61,7 @@ class MediaPipeModelManager(
     }
 
     private fun createSession(model: Model) {
-        val sessionOptions = LlmInferenceSession.LlmInferenceSessionOptions.builder()
+        sessionOptions
             .setTopK(model.topK)
             .setTemperature(model.temperature)
             .setTopP(model.topP)
@@ -69,8 +74,10 @@ class MediaPipeModelManager(
                     )
                 }
             }
-            .build()
-        inferenceSession = LlmInferenceSession.createFromOptions(llmInference!!, sessionOptions)
+        inferenceSession = LlmInferenceSession.createFromOptions(
+            llmInference!!,
+            sessionOptions.build()
+        )
     }
 
     override suspend fun sendPromptToLLM(inputPrompt: String): Flow<ChunkedModelResponse> =
@@ -94,21 +101,29 @@ class MediaPipeModelManager(
                         close()
                     }
                 }
-//            inferenceSession!!.addQueryChunk(inputPrompt)
-//            inferenceSession!!.generateResponseAsync { subText, isDone ->
-//                responseFlow.tryEmit(
-//                    ChunkedModelResponse(
-//                        isDone = isDone,
-//                        chunk = subText,
-//                    )
-//                )
-//            }
 
                 awaitClose {
                     trySend(ChunkedModelResponse(isDone = true, chunk = ""))
                 }
             }
         }
+
+    override suspend fun loadEmbeddingModel(
+        embeddingModelPath: String,
+        tokenizerPath: String
+    ): Boolean {
+        (ragManager as AIEdgeRAGManager).loadMediaPipeLlmBackend(
+            context,
+            mediaPipeLanguageModelOptions = llmInferenceOptions.build(),
+            mediaPipeLanguageModelSessionOptions = sessionOptions.build(),
+        )
+        return ragManager.loadEmbeddingModel(
+            llamatikPathProvider.getPath(embeddingModelPath)
+                ?: throw NullPointerException("Invalid model path"),
+            llamatikPathProvider.getPath(tokenizerPath)
+                ?: throw NullPointerException("Invalid model path"),
+        )
+    }
 
     @OptIn(DelicateCoroutinesApi::class)
     override fun close() {
@@ -121,8 +136,9 @@ class MediaPipeModelManager(
         // Clean up RAG manager
         GlobalScope.launch {//TODO: remove GlobalScope
             (ragManager as? AIEdgeRAGManager)?.clearIndex()
-            ragManager = null
         }
+        // Don't nullify ragManager as it might be reused or is injected
+        // ragManager = null
     }
 
     override fun stopResponseGeneration() {

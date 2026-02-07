@@ -11,6 +11,8 @@ import com.devscion.genai_pg_kmp.domain.PlatformDetailProvider
 import com.devscion.genai_pg_kmp.domain.PlatformDetailProviderAndroid
 import com.devscion.genai_pg_kmp.domain.model.ModelManagerRuntime
 import com.devscion.genai_pg_kmp.domain.rag.RAGManager
+import com.devscion.genai_pg_kmp.data.AndroidFilePicker
+import com.devscion.genai_pg_kmp.domain.FilePicker
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
@@ -41,4 +43,7 @@ actual val platformKoinModule = module {
     //Misc
     factoryOf(::LlamatikPathProviderAndroid) bind LlamatikPathProvider::class
     singleOf(::PlatformDetailProviderAndroid) bind PlatformDetailProvider::class
+    
+    // File Picker
+    single { AndroidFilePicker(androidContext()) } bind FilePicker::class
 }

@@ -25,7 +25,7 @@ import kotlinx.coroutines.withContext
 
 class LiteRTLM_ModelManager(
     private val llamatikPathProviderAndroid: LlamatikPathProviderAndroid,
-    override var ragManager: RAGManager?
+    override var ragManager: RAGManager
 ) : LLMModelManager {
 
     private var conversation: Conversation? = null
@@ -104,6 +104,13 @@ class LiteRTLM_ModelManager(
                 }
             }
         }
+
+    override suspend fun loadEmbeddingModel(
+        embeddingModelPath: String,
+        tokenizerPath: String
+    ): Boolean {
+        return ragManager.loadEmbeddingModel(embeddingModelPath, tokenizerPath)
+    }
 
     override fun close() {
         engine?.close()

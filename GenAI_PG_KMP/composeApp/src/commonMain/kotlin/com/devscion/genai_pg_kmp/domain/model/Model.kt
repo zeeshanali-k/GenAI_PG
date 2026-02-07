@@ -14,11 +14,13 @@ data class Model(
     val size: SizeMB,
     val backend: InferenceBackend = InferenceBackend.CPU,
     val topK: Int = 64,
-    val maxTokens: Int = 512,
+    val maxTokens: Int = 1024,
     val temperature: Float = 0.5f,
     val topP: Float = 0.95f,
     val randomSeed: Int = 0,
     val modelType: ModelManagerRuntime,
+    val embeddingModel: String = "embeddinggemma-300M_seq256_mixed-precision.tflite",
+    val tokenizerModel: String = "sentencepiece.model"
 ) {
     companion object {
         fun models(type: ModelManagerRuntime, platform: Platform): List<Model> {

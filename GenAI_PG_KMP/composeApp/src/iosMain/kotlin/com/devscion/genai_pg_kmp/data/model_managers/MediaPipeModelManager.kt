@@ -6,6 +6,7 @@ import com.devscion.genai_pg_kmp.domain.LLMModelManager
 import com.devscion.genai_pg_kmp.domain.SwiftModelManager
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
 import com.devscion.genai_pg_kmp.domain.model.Model
+import com.devscion.genai_pg_kmp.domain.rag.RAGManager
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
@@ -16,6 +17,7 @@ import kotlinx.coroutines.withContext
 
 class MediaPipeModelManager(
     private val swiftModelManager: SwiftModelManager,
+    override var ragManager: RAGManager,
 ) : LLMModelManager {
 
     override var systemMessage: String? = null
@@ -65,4 +67,12 @@ class MediaPipeModelManager(
                 }
             }
         }
+
+    override suspend fun loadEmbeddingModel(
+        embeddingModelPath: String,
+        tokenizerPath: String
+    ): Boolean {
+//        TODO("Implement RAG for iOS")
+        return false
+    }
 }

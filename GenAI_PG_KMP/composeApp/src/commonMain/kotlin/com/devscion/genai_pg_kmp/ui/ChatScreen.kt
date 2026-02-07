@@ -2,6 +2,7 @@
 
 package com.devscion.genai_pg_kmp.ui
 
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -34,6 +35,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -46,6 +48,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.devscion.genai_pg_kmp.LocalAnimatedVisibilityScope
 import com.devscion.genai_pg_kmp.LocalTransitionScope
+import com.devscion.genai_pg_kmp.domain.FilePicker
 import com.devscion.genai_pg_kmp.domain.model.Model
 import com.devscion.genai_pg_kmp.domain.model.ModelManagerOption
 import com.devscion.genai_pg_kmp.ui.components.ChatBubble
@@ -53,19 +56,39 @@ import com.devscion.genai_pg_kmp.ui.components.ChatInput
 import com.devscion.genai_pg_kmp.ui.components.SelectionButton
 import com.devscion.genai_pg_kmp.ui.dialogs.ErrorMessageDialog
 import com.devscion.genai_pg_kmp.ui.dialogs.OptionSelectionContent
+import com.devscion.genai_pg_kmp.ui.state.ChatHistory
+import com.devscion.genai_pg_kmp.ui.state.ChatUIState
+import com.devscion.genai_pg_kmp.ui.state.DocumentsState
+import com.devscion.genai_pg_kmp.ui.state.ModelManagerError
+import com.devscion.genai_pg_kmp.ui.state.ModelManagerState
+import dev.icerock.moko.permissions.compose.BindEffect
+import dev.icerock.moko.permissions.compose.rememberPermissionsControllerFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
-
 
 @Composable
 fun ChatScreen(
     modifier: Modifier = Modifier,
     viewModel: ChatViewModel = koinViewModel(),
 ) {
+    val filePicker = koinInject<FilePicker>()
+    BindFilePicker(filePicker)
+
+    val factory = rememberPermissionsControllerFactory()
+    val controller = remember(factory) { factory.createPermissionsController() }
+
+    LaunchedEffect(controller) {
+        viewModel.setPermissionsController(controller)
+    }
+
+    BindEffect(controller)
+
     val uiState = viewModel.uiState.collectAsStateWithLifecycle().value
     val focusManager = LocalFocusManager.current
+
     Scaffold(
         modifier.fillMaxSize()
 //            .navigationBarsPadding(),
@@ -98,6 +121,8 @@ fun ChatScreen(
                 onModelSelected = viewModel::onLLMSelected,
                 modelManagerState = it.modelManagerState,
                 chatHistory = it.chatHistory,
+                documentsState = it.documentsState,
+                onRemoveDocument = viewModel::removeDocument,
             )
         }
 
@@ -124,6 +149,8 @@ fun ChatHistoryContent(
     onToggleRuntimeSelection: () -> Unit,
     onModelSelected: (Model) -> Unit,
     onRuntimeSelected: (ModelManagerOption) -> Unit,
+    documentsState: DocumentsState,
+    onRemoveDocument: (String) -> Unit,
 ) {
     SharedTransitionLayout(modifier) {
         CompositionLocalProvider(LocalTransitionScope provides this) {
@@ -241,8 +268,10 @@ fun ChatHistoryContent(
 
                     ChatInput(
                         state = inputFieldState,
+                        documentsState = documentsState,
                         isGeneratingResponse = modelManagerState.isGeneratingResponse,
                         onAttachMediaClick = onAttachMediaClick,
+                        onRemoveDocument = onRemoveDocument,
                         onSendClick = onSendClick,
                         onStopClick = onStopClick,
                     )

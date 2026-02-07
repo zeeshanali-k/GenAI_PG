@@ -57,6 +57,9 @@ kotlin {
             //Llamatik
 
             implementation(libs.llamatik)
+            
+            // Moko Permissions
+            implementation("dev.icerock.moko:permissions-compose:0.18.0")
         }
 //        commonTest.dependencies {
 //            implementation(libs.kotlin.test)

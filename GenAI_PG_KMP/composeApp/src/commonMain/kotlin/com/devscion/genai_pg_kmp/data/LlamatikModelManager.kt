@@ -19,7 +19,7 @@ import kotlinx.coroutines.withContext
 
 class LlamatikModelManager(
     private val llamatikPathProvider: LlamatikPathProvider,
-    override var ragManager: RAGManager?
+    override var ragManager: RAGManager
 ) : LLMModelManager {
     override var systemMessage: String? = null
 
@@ -100,4 +100,11 @@ class LlamatikModelManager(
 
             }
         }
+
+    override suspend fun loadEmbeddingModel(
+        embeddingModelPath: String,
+        tokenizerPath: String
+    ): Boolean {
+        return ragManager.loadEmbeddingModel(embeddingModelPath, tokenizerPath)
+    }
 }

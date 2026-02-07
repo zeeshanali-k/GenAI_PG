@@ -8,6 +8,8 @@ import com.devscion.genai_pg_kmp.domain.LlamatikPathProviderIOS
 import com.devscion.genai_pg_kmp.domain.PlatformDetailProvider
 import com.devscion.genai_pg_kmp.domain.PlatformDetailProviderIOS
 import com.devscion.genai_pg_kmp.domain.model.ModelManagerRuntime
+import com.devscion.genai_pg_kmp.data.iOSFilePicker
+import com.devscion.genai_pg_kmp.domain.FilePicker
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.qualifier.named
@@ -27,4 +29,7 @@ actual val platformKoinModule = module {
     factoryOf(::LlamatikPathProviderIOS) bind LlamatikPathProvider::class
 
     singleOf(::PlatformDetailProviderIOS) bind PlatformDetailProvider::class
+    
+    // File Picker
+    factoryOf(::iOSFilePicker) bind FilePicker::class
 }
