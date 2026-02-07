@@ -1,8 +1,7 @@
 package com.devscion.genai_pg_kmp.ui.components
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,8 +20,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.devscion.genai_pg_kmp.ui.state.DocumentState
+import org.jetbrains.compose.resources.decodeToImageBitmap
 
 /**
  * Chip displaying an attached document with embedded status indicator.
@@ -44,35 +45,31 @@ fun AttachedDocumentChip(
     ) {
         Row(
             modifier = Modifier
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .padding(end = 6.dp),
+            verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Document icon and indicator
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .background(
-                        color = if (document.isEmbedded)
-                            MaterialTheme.colorScheme.primary
-                        else
-                            MaterialTheme.colorScheme.outline,
-                        shape = RoundedCornerShape(4.dp)
-                    )
-            )
-
-            // Document title
-            Text(
-                text = document.title,
-                style = MaterialTheme.typography.bodySmall,
-                color = if (document.isEmbedded)
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                else
-                    MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
-            )
-
-            // Remove button
+            Column(
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                document.platformFile?.bytes?.takeIf { it.isNotEmpty() }?.decodeToImageBitmap()
+                    ?.let {
+                        Image(
+                            it, "",
+                            modifier = Modifier.size(82.dp)
+                                .clip(MaterialTheme.shapes.medium)
+                        )
+                    }
+                Text(
+                    text = document.title,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (document.isEmbedded)
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    else
+                        MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
+            }
             IconButton(
                 onClick = onRemove,
                 modifier = Modifier.size(20.dp)

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -48,7 +49,6 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.devscion.genai_pg_kmp.LocalAnimatedVisibilityScope
 import com.devscion.genai_pg_kmp.LocalTransitionScope
-import com.devscion.genai_pg_kmp.domain.FilePicker
 import com.devscion.genai_pg_kmp.domain.model.Model
 import com.devscion.genai_pg_kmp.domain.model.ModelManagerOption
 import com.devscion.genai_pg_kmp.ui.components.ChatBubble
@@ -66,7 +66,6 @@ import dev.icerock.moko.permissions.compose.rememberPermissionsControllerFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -74,8 +73,6 @@ fun ChatScreen(
     modifier: Modifier = Modifier,
     viewModel: ChatViewModel = koinViewModel(),
 ) {
-    val filePicker = koinInject<FilePicker>()
-    BindFilePicker(filePicker)
 
     val factory = rememberPermissionsControllerFactory()
     val controller = remember(factory) { factory.createPermissionsController() }
@@ -91,11 +88,8 @@ fun ChatScreen(
 
     Scaffold(
         modifier.fillMaxSize()
-//            .navigationBarsPadding(),
+            .navigationBarsPadding(),
     ) { paddingValues ->
-//        Column(
-//            Modifier.fillMaxSize()
-//        ) {
 
         (uiState as? ChatUIState.Success)?.let {
             ChatHistoryContent(
@@ -131,7 +125,6 @@ fun ChatScreen(
             onResetError = viewModel::resetError,
         )
     }
-//    }
 }
 
 

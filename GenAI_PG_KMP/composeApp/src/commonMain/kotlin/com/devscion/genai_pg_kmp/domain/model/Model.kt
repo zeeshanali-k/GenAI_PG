@@ -18,6 +18,7 @@ data class Model(
     val temperature: Float = 0.5f,
     val topP: Float = 0.95f,
     val randomSeed: Int = 0,
+    val isVisionEnabled: Boolean = false,
     val modelType: ModelManagerRuntime,
     val embeddingModel: String = "embeddinggemma-300M_seq256_mixed-precision.tflite",
     val tokenizerModel: String = "sentencepiece.model"
@@ -65,6 +66,15 @@ data class Model(
         }
         private val LITE_RT_LM_MODELS = buildList {
             val modelType = ModelManagerRuntime.LITE_RT_LM
+            add(
+                Model(
+                    id = "gemma-3n-E2B-it-int4.litertlm",
+                    name = "Gemma-3n",
+                    size = 3400,
+                    modelType = modelType,
+                    isVisionEnabled = true
+                )
+            )
             add(
                 Model(
                     id = "Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm",
@@ -116,6 +126,27 @@ data class Model(
         private val MEDIA_PIPE_MODELS = buildList {
             val modelType = ModelManagerRuntime.MEDIA_PIPE
 
+            add(
+                Model(
+                    id = "gemma-3n-E2B-it-int4.litertlm",
+                    name = "Gemma-3n",
+                    size = 3400,
+                    modelType = modelType,
+                    isVisionEnabled = true,
+                )
+            )
+            add(
+                Model(
+                    id = "gemma3-1B-it-int4.task",
+                    name = "Gemma3 1B IT",
+                    size = 529,
+                    backend = InferenceBackend.CPU,
+                    temperature = 1.0f,
+                    topK = 64,
+                    topP = 0.95f,
+                    modelType = modelType
+                )
+            )
             add(
                 Model(
                     id = "Gemma3-1B-IT_multi-prefill-seq_q8_ekv2048.task",

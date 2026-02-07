@@ -1,7 +1,10 @@
 package com.devscion.genai_pg_kmp.data.model_managers
 
+import android.util.Log
 import com.devscion.genai_pg_kmp.domain.LLMModelManager
 import com.devscion.genai_pg_kmp.domain.LlamatikPathProviderAndroid
+import com.devscion.genai_pg_kmp.domain.MediaType
+import com.devscion.genai_pg_kmp.domain.PlatformFile
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
 import com.devscion.genai_pg_kmp.domain.model.InferenceBackend
 import com.devscion.genai_pg_kmp.domain.model.Model
@@ -14,13 +17,12 @@ import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.Message
+import com.google.ai.edge.litertlm.MessageCallback
 import com.google.ai.edge.litertlm.SamplerConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.withContext
 
 class LiteRTLM_ModelManager(
@@ -40,6 +42,7 @@ class LiteRTLM_ModelManager(
                         ?: return@withContext false,
                     backend = model.backend.toLiteRTLMBackend(),
                     maxNumTokens = model.maxTokens,
+                    visionBackend = Backend.GPU,
                     // optional: Pick a writable dir. This can improve 2nd load time.
                     // cacheDir = "/tmp/" or context.cacheDir.path (for Android)
                 )
@@ -59,39 +62,82 @@ class LiteRTLM_ModelManager(
 
                 conversation = engine?.createConversation(conversationConfig)
                 true
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                e.printStackTrace()
                 false
             }
         }
     }
 
-    override suspend fun sendPromptToLLM(inputPrompt: String): Flow<ChunkedModelResponse> =
+    override suspend fun sendPromptToLLM(
+        inputPrompt: String,
+        attachments: List<PlatformFile>?
+    ): Flow<ChunkedModelResponse> =
         withContext(Dispatchers.IO) {
             callbackFlow {
                 if (engine == null) {
                     throw IllegalStateException("Engine must be initialized")
                 }
-                conversation?.sendMessageAsync(Contents.of(Content.Text(inputPrompt)))
-                    ?.catch {
-                        send(
-                            ChunkedModelResponse(
-                                true,
-                                ""
-                            )
-                        )
+                val contents = mutableListOf<Content>()
+                contents.add(Content.Text(inputPrompt))
+
+                attachments?.filter { it.type == MediaType.IMAGE && it.bytes != null }
+                    ?.forEach { file ->
+                        Log.d("LiteRT_LMModelManager", "file-> $file")
+
+                        contents.add(Content.ImageBytes(file.bytes!!))
                     }
-                    ?.collectLatest { message ->
-                        message.contents.contents.forEach {
-                            if (it is Content.Text) {
-                                this.send(
-                                    ChunkedModelResponse(
-                                        false,
-                                        it.text
-                                    )
+                conversation?.sendMessageAsync(
+                    Contents.of(contents),
+                    callback = object : MessageCallback {
+                        override fun onMessage(message: Message) {
+                            Log.d(
+                                "LiteRT_LMModelManager",
+                                "message-> $message"
+                            )
+                            message.contents.contents.forEach {
+                                Log.d(
+                                    "LiteRT_LMModelManager",
+                                    "content-> $it"
                                 )
+                                if (it is Content.Text) {
+                                    trySend(
+                                        ChunkedModelResponse(
+                                            false,
+                                            it.text
+                                        )
+                                    )
+                                }
                             }
                         }
-                    }
+
+                        override fun onDone() {
+                            Log.d(
+                                "LiteRT_LMModelManager",
+                                "onDone"
+                            )
+                            trySend(
+                                ChunkedModelResponse(
+                                    true,
+                                    ""
+                                )
+                            )
+                        }
+
+                        override fun onError(throwable: Throwable) {
+                            Log.d(
+                                "LiteRT_LMModelManager",
+                                "onError"
+                            )
+                            throwable.printStackTrace()
+                            trySend(
+                                ChunkedModelResponse(
+                                    true,
+                                    ""
+                                )
+                            )
+                        }
+                    })
 
                 awaitClose {
                     this.trySend(

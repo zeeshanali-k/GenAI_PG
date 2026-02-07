@@ -11,10 +11,10 @@ interface RAGManager {
      * Load and initialize the embedding model.
      * This must be called before indexing documents or retrieving context.
      *
-     * @param modelPath Path to the embedding model file
+     * @param embeddingModelPath Path to the embedding model file
      * @return true if model loaded successfully, false otherwise
      */
-    suspend fun loadEmbeddingModel(modelPath: String, tokenizerPath: String): Boolean
+    suspend fun loadEmbeddingModel(embeddingModelPath: String, tokenizerPath: String): Boolean
 
     /**
      * Index a document for later retrieval.

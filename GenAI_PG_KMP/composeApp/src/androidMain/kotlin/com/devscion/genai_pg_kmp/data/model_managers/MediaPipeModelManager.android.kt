@@ -1,14 +1,18 @@
 package com.devscion.genai_pg_kmp.data.model_managers
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.util.Log
-import com.devscion.genai_pg_kmp.data.rag.AIEdgeRAGManager
+import com.devscion.genai_pg_kmp.data.rag.MediaPipeRAGManager
 import com.devscion.genai_pg_kmp.domain.LLMModelManager
 import com.devscion.genai_pg_kmp.domain.LlamatikPathProvider
+import com.devscion.genai_pg_kmp.domain.MediaType
+import com.devscion.genai_pg_kmp.domain.PlatformFile
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
 import com.devscion.genai_pg_kmp.domain.model.InferenceBackend
 import com.devscion.genai_pg_kmp.domain.model.Model
 import com.devscion.genai_pg_kmp.domain.rag.RAGManager
+import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
 import com.google.mediapipe.tasks.genai.llminference.PromptTemplates
@@ -32,6 +36,7 @@ class MediaPipeModelManager(
         LlmInferenceSession.LlmInferenceSessionOptions.builder()
     val llmInferenceOptions: LlmInference.LlmInferenceOptions.Builder =
         LlmInference.LlmInferenceOptions.builder()
+            .setMaxNumImages(5)
     override var systemMessage: String? = null
     private var inferenceSession: LlmInferenceSession? = null
     private var llmInference: LlmInference? = null
@@ -73,6 +78,13 @@ class MediaPipeModelManager(
                             .build()
                     )
                 }
+                if (model.isVisionEnabled) {
+//          TODO:          setGraphOptions(
+//                        GraphOptions.builder()
+//                            .setEnableVisionModality(true)
+//                            .build()
+//                    )
+                }
             }
         inferenceSession = LlmInferenceSession.createFromOptions(
             llmInference!!,
@@ -80,12 +92,30 @@ class MediaPipeModelManager(
         )
     }
 
-    override suspend fun sendPromptToLLM(inputPrompt: String): Flow<ChunkedModelResponse> =
+    override suspend fun sendPromptToLLM(
+        inputPrompt: String,
+        attachments: List<PlatformFile>?
+    ): Flow<ChunkedModelResponse> =
         withContext(Dispatchers.IO) {
             callbackFlow {
                 if (inferenceSession == null) {
                     throw IllegalStateException("Engine must be initialized")
                 }
+                attachments?.filter { it.type == MediaType.IMAGE && it.bytes != null }
+                    ?.forEach { file ->
+                        val bitmap = BitmapFactory.decodeByteArray(file.bytes, 0, file.bytes!!.size)
+                        if (bitmap != null) {
+                            try {
+                                inferenceSession!!.addImage(BitmapImageBuilder(bitmap).build())
+                            } catch (e: Exception) {
+                                Log.e(
+                                    "MediaPipeModelManager",
+                                    "Failed to add image chunk: ${e.message}"
+                                )
+                            }
+                        }
+                    }
+
                 inferenceSession!!.addQueryChunk(inputPrompt)
                 inferenceSession!!.generateResponseAsync { subText, isDone ->
                     Log.d("LLMResponse", "ModelManager-> $isDone :: $subText")
@@ -112,16 +142,11 @@ class MediaPipeModelManager(
         embeddingModelPath: String,
         tokenizerPath: String
     ): Boolean {
-        (ragManager as AIEdgeRAGManager).loadMediaPipeLlmBackend(
-            context,
-            mediaPipeLanguageModelOptions = llmInferenceOptions.build(),
-            mediaPipeLanguageModelSessionOptions = sessionOptions.build(),
-        )
         return ragManager.loadEmbeddingModel(
             llamatikPathProvider.getPath(embeddingModelPath)
-                ?: throw NullPointerException("Invalid model path"),
+                ?: throw IllegalArgumentException("Invalid model path"),
             llamatikPathProvider.getPath(tokenizerPath)
-                ?: throw NullPointerException("Invalid model path"),
+                ?: throw IllegalArgumentException("Invalid model path"),
         )
     }
 
@@ -133,9 +158,8 @@ class MediaPipeModelManager(
         llmInference?.close()
         llmInference = null
 
-        // Clean up RAG manager
         GlobalScope.launch {//TODO: remove GlobalScope
-            (ragManager as? AIEdgeRAGManager)?.clearIndex()
+            (ragManager as? MediaPipeRAGManager)?.clearIndex()
         }
         // Don't nullify ragManager as it might be reused or is injected
         // ragManager = null

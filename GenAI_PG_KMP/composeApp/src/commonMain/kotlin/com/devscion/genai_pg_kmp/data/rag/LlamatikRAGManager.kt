@@ -19,12 +19,15 @@ class LlamatikRAGManager : RAGManager {
     private val logger = Logger.withTag("LlamatikRAGManager")
     private var isModelLoaded = false
 
-    override suspend fun loadEmbeddingModel(modelPath: String, tokenizerPath: String): Boolean =
+    override suspend fun loadEmbeddingModel(
+        embeddingModelPath: String,
+        tokenizerPath: String
+    ): Boolean =
         withContext(Dispatchers.IO) {
             if (isModelLoaded) return@withContext true
             try {
-                logger.d { "Loading embedding model: $modelPath" }
-                isModelLoaded = LlamaBridge.initModel(modelPath)
+                logger.d { "Loading embedding model: $embeddingModelPath" }
+                isModelLoaded = LlamaBridge.initModel(embeddingModelPath)
                 if (isModelLoaded) {
                     logger.d { "Embedding model loaded successfully" }
                 } else {

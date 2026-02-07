@@ -17,7 +17,10 @@ interface LLMModelManager {
 
     fun stopResponseGeneration()
 
-    suspend fun sendPromptToLLM(inputPrompt: String): Flow<ChunkedModelResponse>
+    suspend fun sendPromptToLLM(
+        inputPrompt: String,
+        attachments: List<PlatformFile>?
+    ): Flow<ChunkedModelResponse>
 
     // RAG Support
     var ragManager: RAGManager
@@ -30,7 +33,8 @@ interface LLMModelManager {
 
     suspend fun sendPromptWithRAG(
         inputPrompt: String,
-        topK: Int = 3
+        topK: Int = 3,
+        images: List<PlatformFile>? = null
     ): Flow<ChunkedModelResponse> {
         val context = ragManager.retrieveContext(inputPrompt, topK)
         Logger.d("LLMModelManager") {
@@ -41,7 +45,7 @@ interface LLMModelManager {
         } else {
             inputPrompt
         }
-        return sendPromptToLLM(augmentedPrompt)
+        return sendPromptToLLM(augmentedPrompt, images)
     }
 
     fun buildPromptWithContext(prompt: String, context: String): String {

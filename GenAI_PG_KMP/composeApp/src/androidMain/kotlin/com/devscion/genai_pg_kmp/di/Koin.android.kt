@@ -1,9 +1,11 @@
 package com.devscion.genai_pg_kmp.di
 
+import com.devscion.genai_pg_kmp.data.AndroidFilePicker
 import com.devscion.genai_pg_kmp.data.model_managers.LiteRTLM_ModelManager
 import com.devscion.genai_pg_kmp.data.model_managers.MediaPipeModelManager
-import com.devscion.genai_pg_kmp.data.rag.AIEdgeRAGManager
 import com.devscion.genai_pg_kmp.data.rag.LlamatikRAGManager
+import com.devscion.genai_pg_kmp.data.rag.MediaPipeRAGManager
+import com.devscion.genai_pg_kmp.domain.FilePicker
 import com.devscion.genai_pg_kmp.domain.LLMModelManager
 import com.devscion.genai_pg_kmp.domain.LlamatikPathProvider
 import com.devscion.genai_pg_kmp.domain.LlamatikPathProviderAndroid
@@ -11,8 +13,6 @@ import com.devscion.genai_pg_kmp.domain.PlatformDetailProvider
 import com.devscion.genai_pg_kmp.domain.PlatformDetailProviderAndroid
 import com.devscion.genai_pg_kmp.domain.model.ModelManagerRuntime
 import com.devscion.genai_pg_kmp.domain.rag.RAGManager
-import com.devscion.genai_pg_kmp.data.AndroidFilePicker
-import com.devscion.genai_pg_kmp.domain.FilePicker
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
@@ -23,7 +23,7 @@ import org.koin.dsl.module
 actual val platformKoinModule = module {
 
     // RAG manager for Android (MediaPipe and LiteRT-LM)
-    factoryOf(::AIEdgeRAGManager) {
+    factoryOf(::MediaPipeRAGManager) {
         qualifier = named(ModelManagerRuntime.MEDIA_PIPE)
     } bind RAGManager::class
     factoryOf(::LlamatikRAGManager) {
@@ -43,7 +43,7 @@ actual val platformKoinModule = module {
     //Misc
     factoryOf(::LlamatikPathProviderAndroid) bind LlamatikPathProvider::class
     singleOf(::PlatformDetailProviderAndroid) bind PlatformDetailProvider::class
-    
+
     // File Picker
     single { AndroidFilePicker(androidContext()) } bind FilePicker::class
 }

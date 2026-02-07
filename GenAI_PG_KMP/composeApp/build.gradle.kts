@@ -31,10 +31,13 @@ kotlin {
 
             //  MediaPipe
             implementation(libs.mediapipe.tasks.genai)
+            implementation(libs.localagents.rag)
+            implementation(libs.tasks.vision)
+//            implementation(libs.tasks.text)
+//            implementation(libs.tasks.audio)
             //    LiteRT-LM
             implementation(libs.litertlm.android)
-            //  Google AI Edge RAG SDK (for MediaPipe & LiteRT-LM)
-            implementation(libs.localagents.rag)
+            //  Google AI Edge RAG SDK for MediaPipe
 
 
             /** Gen AI Libraries **/
@@ -57,7 +60,7 @@ kotlin {
             //Llamatik
 
             implementation(libs.llamatik)
-            
+
             // Moko Permissions
             implementation("dev.icerock.moko:permissions-compose:0.18.0")
         }

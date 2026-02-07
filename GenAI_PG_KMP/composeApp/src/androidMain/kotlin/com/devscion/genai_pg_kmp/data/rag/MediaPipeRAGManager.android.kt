@@ -1,6 +1,5 @@
 package com.devscion.genai_pg_kmp.data.rag
 
-import android.content.Context
 import co.touchlab.kermit.Logger
 import com.devscion.genai_pg_kmp.domain.rag.RAGDocument
 import com.devscion.genai_pg_kmp.domain.rag.RAGManager
@@ -10,33 +9,20 @@ import com.google.ai.edge.localagents.rag.memory.DefaultSemanticTextMemory
 import com.google.ai.edge.localagents.rag.memory.SqliteVectorStore
 import com.google.ai.edge.localagents.rag.models.Embedder
 import com.google.ai.edge.localagents.rag.models.GeckoEmbeddingModel
-import com.google.ai.edge.localagents.rag.models.LanguageModelRequest
-import com.google.ai.edge.localagents.rag.models.MediaPipeLlmBackend
-import com.google.ai.edge.localagents.rag.prompt.PromptBuilder
 import com.google.ai.edge.localagents.rag.retrieval.RetrievalConfig
 import com.google.ai.edge.localagents.rag.retrieval.RetrievalRequest
 import com.google.common.collect.ImmutableList
-import com.google.mediapipe.tasks.genai.llminference.LlmInference
-import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Optional
-import java.util.concurrent.Executors
 import kotlin.jvm.optionals.getOrNull
 
 /**
- * RAG manager implementation for Android ( MediaPipe & LiteRT-LM).
- *
- * NOTE: This is a simplified placeholder implementation.
- * To use the actual Google AI Edge RAG SDK, add the proper dependency
- * and implement using the SDK's VectorStore, DocumentSplitter, and EmbeddingGenerator.
- *
- * For now, this uses a simple in-memory approach similar to Llamatik.
+ * RAG manager implementation for Android MediaPipe.
  */
-class AIEdgeRAGManager() : RAGManager {
+class MediaPipeRAGManager() : RAGManager {
 
 
-    private var mediaPipeLlmBackend: MediaPipeLlmBackend? = null
     private var chainConfig: ChainConfig<String>? = null
 
     private var retrievalChain: RetrievalChain<String>? = null
@@ -46,36 +32,6 @@ class AIEdgeRAGManager() : RAGManager {
     private val splitter = SimpleDocumentSplitter()
     private val logger = Logger.withTag("AIEdgeRAGManager")
     private var isModelLoaded = false
-
-
-    /**
-     * **loadMediaPipeLlmBackend** must be called before calling **loadEmbeddingModel**
-     * @see loadEmbeddingModel
-     * */
-    suspend fun loadMediaPipeLlmBackend(
-        context: Context,
-        mediaPipeLanguageModelOptions: LlmInference.LlmInferenceOptions,
-        mediaPipeLanguageModelSessionOptions: LlmInferenceSession.LlmInferenceSessionOptions,
-    ): Boolean = withContext(Dispatchers.IO) {
-        try {
-            logger.d { "Loading MediaPipeLanguageModel" }
-            mediaPipeLlmBackend = MediaPipeLlmBackend(
-                context, mediaPipeLanguageModelOptions,
-                mediaPipeLanguageModelSessionOptions
-            )
-            mediaPipeLlmBackend!!.generateResponse(
-                LanguageModelRequest.builder()
-                    .setPrompt("")
-                    .build(),
-                Executors.newSingleThreadExecutor(),
-                { _, _ -> }
-            )
-            return@withContext mediaPipeLlmBackend!!.initialize().get()
-        } catch (e: Exception) {
-            logger.e(e) { "Exception while loading MediaPipeLanguageModel" }
-            return@withContext false
-        }
-    }
 
     override suspend fun loadEmbeddingModel(
         embeddingModelPath: String,
@@ -91,10 +47,7 @@ class AIEdgeRAGManager() : RAGManager {
                 Optional.of(tokenizerPath),
                 false
             )
-            chainConfig = ChainConfig.create(
-                mediaPipeLlmBackend, PromptBuilder(""),
-                getSemanticMemory()
-            )
+            chainConfig = ChainConfig.create(getSemanticMemory())
             retrievalChain = RetrievalChain(chainConfig!!)
             logger.d { "Embedding model placeholder loaded" }
             true
@@ -160,10 +113,9 @@ class AIEdgeRAGManager() : RAGManager {
         }
 
     override suspend fun clearIndex() {
-        chainConfig = chainConfig!!.toBuilder().setSemanticMemory(
+        chainConfig = chainConfig?.toBuilder()?.setSemanticMemory(
             getSemanticMemory()
-        )
-            .build()
+        )?.build()
         //TODO: test
         logger.d { "Cleared RAG index" }
     }

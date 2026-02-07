@@ -8,13 +8,16 @@ import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
 import com.devscion.genai_pg_kmp.domain.FilePicker
 import com.devscion.genai_pg_kmp.domain.LLMModelManager
+import com.devscion.genai_pg_kmp.domain.MediaType
 import com.devscion.genai_pg_kmp.domain.PlatformDetailProvider
+import com.devscion.genai_pg_kmp.domain.PlatformFile
 import com.devscion.genai_pg_kmp.domain.model.ChatHistoryItem
 import com.devscion.genai_pg_kmp.domain.model.Model
 import com.devscion.genai_pg_kmp.domain.model.ModelManagerOption
 import com.devscion.genai_pg_kmp.domain.model.Platform
 import com.devscion.genai_pg_kmp.domain.model.androidOptions
 import com.devscion.genai_pg_kmp.domain.model.iOSOptions
+import com.devscion.genai_pg_kmp.domain.rag.RAGDocument
 import com.devscion.genai_pg_kmp.ui.state.ChatHistory
 import com.devscion.genai_pg_kmp.ui.state.ChatUIState
 import com.devscion.genai_pg_kmp.ui.state.DocumentState
@@ -98,8 +101,6 @@ class ChatViewModel(
             return
         }
         llmResponseJob = viewModelScope.launch {
-            // Embed any pending documents before sending
-            embedPendingDocuments()
 
             addUserMessage()
             val message = inputFieldState.text.toString()
@@ -120,11 +121,21 @@ class ChatViewModel(
                 )
             }
 
-            // Use RAG if documents are attached, otherwise regular prompt
-            val flow = if (documentsState.value.documents.isNotEmpty()) {
-                modelManager?.sendPromptWithRAG(message)
+            // Filter documents for RAG (Text only)
+            val ragDocuments =
+                documentsState.value.documents.filter { it.type == MediaType.DOCUMENT }
+            // Filter attachments for Multimodal (Image, Audio)
+            val images = documentsState.value.documents
+                .filter { it.type != MediaType.DOCUMENT }
+                .mapNotNull { it.platformFile }
+
+            val flow = if (ragDocuments.isNotEmpty()) {
+                embedPendingDocuments()
+                resetDocumentsState()
+                modelManager?.sendPromptWithRAG(message, images = images)
             } else {
-                modelManager?.sendPromptToLLM(message)
+                resetDocumentsState()
+                modelManager?.sendPromptToLLM(message, images.takeIf { it.isNotEmpty() })
             }
 
             flow?.collectLatest {
@@ -139,8 +150,20 @@ class ChatViewModel(
                 }
                 if (it.isDone) {
                     cleanup()
+                    if (it.isDone) {
+                        cleanup()
+                        // pendingImages.clear() // No longer needed
+                    }
                 }
             }
+        }
+    }
+
+    private fun resetDocumentsState() {
+        documentsState.update {
+            it.copy(
+                documents = emptyList()
+            )
         }
     }
 
@@ -184,25 +207,22 @@ class ChatViewModel(
             try {
                 if (::permissionsController.isInitialized) {
                     try {
-                        // Request storage permission if needed. 
-                        // Note: For simple file picking (ACTION_GET_CONTENT), strictly speaking, 
-                        // explicit storage permission isn't always needed for the picked URI 
-                        // as the system grants temporary access. However, usually good practice or required for some scopes.
-                        // Using STORAGE as a generic placeholder.
-                        // For Android 13+, Moko maps STORAGE to READ_EXTERNAL_STORAGE (legacy) or throws? 
-                        // We'll wrap in try-catch in case permission is not applicable/needed or defined in Manifest
                         permissionsController.providePermission(Permission.STORAGE)
                     } catch (e: Exception) {
                         Logger.w("ChatViewModel") { "Permission request failed or rejected: ${e.message}" }
                     }
                 }
 
-                val file = filePicker.pickDocument()
+                val file = filePicker.pickMedia()
                 if (file != null) {
-                    attachDocument(file.name, file.content)
+                    when (file.type) {
+                        MediaType.DOCUMENT -> attachDocument(file)
+                        MediaType.IMAGE -> attachDocument(file)
+                        else -> {}
+                    }
                 }
             } catch (e: Exception) {
-                Logger.e("ChatViewModel", e) { "Failed to pick document" }
+                Logger.e("ChatViewModel", e) { "Failed to pick media" }
             }
         }
     }
@@ -274,12 +294,13 @@ class ChatViewModel(
     }
 
     // RAG Document Management
-
-    fun attachDocument(title: String, content: String) {
+    fun attachDocument(file: PlatformFile) {
         val document = DocumentState(
-            title = title,
-            content = content,
-            isEmbedded = false
+            title = file.name,
+            content = file.content ?: "", // Content might be empty for images
+            isEmbedded = false,
+            type = file.type,
+            platformFile = if (file.type == MediaType.IMAGE) file else null
         )
         documentsState.update {
             it.copy(documents = it.documents + document)
@@ -291,7 +312,7 @@ class ChatViewModel(
         documentsState.update {
             it.copy(documents = it.documents.filter { doc -> doc.id != documentId })
         }
-        document?.takeIf { it.isEmbedded }?.let {
+        document?.takeIf { it.isEmbedded && it.type == MediaType.DOCUMENT }?.let {
             viewModelScope.launch {
                 embedPendingDocuments(isReEmbedding = true)
             }
@@ -299,8 +320,14 @@ class ChatViewModel(
     }
 
     private suspend fun embedPendingDocuments(isReEmbedding: Boolean = false) {
-        val pendingDocs =
-            if (isReEmbedding) documentsState.value.documents else documentsState.value.documents.filter { !it.isEmbedded }
+        val pendingDocs = documentsState.value.documents.filter {
+            if (isReEmbedding) {
+                it.type == MediaType.DOCUMENT
+            } else {
+                it.isEmbedded.not() && it.type == MediaType.DOCUMENT
+            }
+        }
+
         if (pendingDocs.isEmpty()) return
 
         documentsState.update {
@@ -318,7 +345,7 @@ class ChatViewModel(
                 )
             }
             pendingDocs.forEachIndexed { index, doc ->
-                val ragDocument = com.devscion.genai_pg_kmp.domain.rag.RAGDocument(
+                val ragDocument = RAGDocument(
                     id = doc.id,
                     content = doc.content,
                     metadata = mapOf("title" to doc.title)
@@ -326,7 +353,6 @@ class ChatViewModel(
 
                 modelManager!!.indexDocument(ragDocument)
 
-                // Mark document as embedded
                 documentsState.update { state ->
                     state.copy(
                         documents = state.documents.map {

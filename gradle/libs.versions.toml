@@ -17,9 +17,10 @@ localagentsRag = "0.3.0"
 materialIconsCore = "1.7.3"
 composeMultiplatform = "1.10.0"
 litertlmAndroid = "latest.release"
-tasksGenai = "0.10.29"
+tasksGenai = "0.10.32"
 koin = "4.1.1"
 kermit = "2.0.8"
+mediapipeTasks = "latest.release"
 uiToolingPreview = "1.10.0"
 
 [libraries]
@@ -51,6 +52,9 @@ koin-compose-viewmodel-navigation = { module = "io.insert-koin:koin-compose-view
 koin-test = { module = "io.insert-koin:koin-test", version.ref = "koin" }
 koin-android = { module = "io.insert-koin:koin-android", version.ref = "koin" }
 koin-compose = { module = "io.insert-koin:koin-compose", version.ref = "koin" }
+tasks-audio = { module = "com.google.mediapipe:tasks-audio", version.ref = "mediapipeTasks" }
+tasks-text = { module = "com.google.mediapipe:tasks-text", version.ref = "mediapipeTasks" }
+tasks-vision = { module = "com.google.mediapipe:tasks-vision", version.ref = "mediapipeTasks" }
 ui-tooling-preview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "uiToolingPreview" }
 ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.ref = "uiToolingPreview" }
 
