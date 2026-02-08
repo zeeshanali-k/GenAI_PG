@@ -102,9 +102,10 @@ class ChatViewModel(
         }
         llmResponseJob = viewModelScope.launch {
 
-            addUserMessage()
+            addUserMessage(documentsState.value.documents.toList())
             val message = inputFieldState.text.toString()
             resetInputField()
+
             val responseId = Uuid.generateV7().toString()
             chatHistoryState.value.history.add(
                 ChatHistoryItem(
@@ -114,7 +115,6 @@ class ChatViewModel(
                     isLoading = true
                 )
             )
-            val responseIndex = chatHistoryState.value.history.lastIndex
             modelManagerState.update {
                 it.copy(
                     isGeneratingResponse = true
@@ -138,6 +138,7 @@ class ChatViewModel(
                 modelManager?.sendPromptToLLM(message, images.takeIf { it.isNotEmpty() })
             }
 
+            val responseIndex = chatHistoryState.value.history.lastIndex
             flow?.collectLatest {
                 val chatMessage = chatHistoryState.value.history[responseIndex]
 
@@ -187,13 +188,14 @@ class ChatViewModel(
         }
     }
 
-    private fun addUserMessage() {
+    private fun addUserMessage(attachments: List<DocumentState>) {
         chatHistoryState.value.history.add(
             ChatHistoryItem(
                 id = Uuid.generateV7().toString(),
                 message = inputFieldState.text.toString(),
                 isLLMResponse = false,
-                isLoading = false
+                isLoading = false,
+                attachments = attachments
             )
         )
     }

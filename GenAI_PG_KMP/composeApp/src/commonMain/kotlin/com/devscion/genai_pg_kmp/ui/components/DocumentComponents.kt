@@ -31,7 +31,7 @@ import org.jetbrains.compose.resources.decodeToImageBitmap
 @Composable
 fun AttachedDocumentChip(
     document: DocumentState,
-    onRemove: () -> Unit,
+    onRemove: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -70,19 +70,21 @@ fun AttachedDocumentChip(
                     maxLines = 1
                 )
             }
-            IconButton(
-                onClick = onRemove,
-                modifier = Modifier.size(20.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = "Remove document",
-                    modifier = Modifier.size(14.dp),
-                    tint = if (document.isEmbedded)
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    else
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            if (onRemove != null) {
+                IconButton(
+                    onClick = onRemove,
+                    modifier = Modifier.size(20.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Remove document",
+                        modifier = Modifier.size(14.dp),
+                        tint = if (document.isEmbedded)
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }

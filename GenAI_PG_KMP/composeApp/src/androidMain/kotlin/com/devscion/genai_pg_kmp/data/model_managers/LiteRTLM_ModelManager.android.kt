@@ -42,7 +42,7 @@ class LiteRTLM_ModelManager(
                         ?: return@withContext false,
                     backend = model.backend.toLiteRTLMBackend(),
                     maxNumTokens = model.maxTokens,
-                    visionBackend = Backend.GPU,
+                    visionBackend = if (model.isVisionEnabled) Backend.GPU else null,
                     // optional: Pick a writable dir. This can improve 2nd load time.
                     // cacheDir = "/tmp/" or context.cacheDir.path (for Android)
                 )

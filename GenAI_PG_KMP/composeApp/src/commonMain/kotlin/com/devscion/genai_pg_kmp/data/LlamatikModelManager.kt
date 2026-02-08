@@ -46,12 +46,9 @@ class LlamatikModelManager(
 
     override fun close() {
         LlamaBridge.shutdown()
-        ragManager?.let {
-            // Clear RAG index when closing
-            //TODO: remove GlobalScope
-            GlobalScope.launch(Dispatchers.IO) {
-                it.clearIndex()
-            }
+        //TODO: remove GlobalScope
+        GlobalScope.launch(Dispatchers.IO) {
+            ragManager.clearIndex()
         }
     }
 

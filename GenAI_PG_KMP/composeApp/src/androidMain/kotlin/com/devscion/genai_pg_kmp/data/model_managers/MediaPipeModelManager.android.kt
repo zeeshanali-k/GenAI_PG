@@ -13,6 +13,7 @@ import com.devscion.genai_pg_kmp.domain.model.InferenceBackend
 import com.devscion.genai_pg_kmp.domain.model.Model
 import com.devscion.genai_pg_kmp.domain.rag.RAGManager
 import com.google.mediapipe.framework.image.BitmapImageBuilder
+import com.google.mediapipe.tasks.genai.llminference.GraphOptions
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
 import com.google.mediapipe.tasks.genai.llminference.PromptTemplates
@@ -79,11 +80,11 @@ class MediaPipeModelManager(
                     )
                 }
                 if (model.isVisionEnabled) {
-//          TODO:          setGraphOptions(
-//                        GraphOptions.builder()
-//                            .setEnableVisionModality(true)
-//                            .build()
-//                    )
+                    setGraphOptions(
+                        GraphOptions.builder()
+                            .setEnableVisionModality(true)
+                            .build()
+                    )
                 }
             }
         inferenceSession = LlmInferenceSession.createFromOptions(

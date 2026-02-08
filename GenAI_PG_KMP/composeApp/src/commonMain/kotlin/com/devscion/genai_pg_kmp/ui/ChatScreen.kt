@@ -67,6 +67,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
+import com.devscion.genai_pg_kmp.domain.MediaType
+import com.devscion.genai_pg_kmp.utils.toComposeImageBitmap
+import androidx.compose.foundation.Image
+import com.devscion.genai_pg_kmp.ui.components.AttachedDocumentChip
 
 @Composable
 fun ChatScreen(
@@ -251,8 +255,35 @@ fun ChatHistoryContent(
                                             .padding(12.dp),
                                         horizontalAlignment = if (item.isLLMResponse) Alignment.Start
                                         else Alignment.End,
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        Text(item.message)
+                                        // Render Attachments
+                                        item.attachments.forEach { doc ->
+                                            if (doc.type == MediaType.IMAGE && doc.platformFile?.bytes != null) {
+                                                val bitmap = doc.platformFile.bytes.toComposeImageBitmap()
+                                                Image(
+                                                    bitmap = bitmap,
+                                                    contentDescription = "Attached Image",
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .heightIn(max = 200.dp)
+                                                        .clip(MaterialTheme.shapes.medium),
+                                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                                )
+                                            } else {
+                                                // Read-only chip for documents
+                                                // We can reuse AttachedDocumentChip for now, 
+                                                // maybe hide close button in future refactor
+                                                AttachedDocumentChip(
+                                                    document = doc,
+                                                    // onRemove = null (default) for read-only
+                                                    modifier = Modifier.fillMaxWidth()
+                                                )
+                                            }
+                                        }
+                                        if (item.message.isNotEmpty()) {
+                                            Text(item.message)
+                                        }
                                     }
                                 }
                             }
