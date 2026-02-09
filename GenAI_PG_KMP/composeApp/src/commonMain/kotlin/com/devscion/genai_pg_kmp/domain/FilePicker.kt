@@ -2,10 +2,11 @@ package com.devscion.genai_pg_kmp.domain
 
 interface FilePicker {
     suspend fun pickMedia(): PlatformFile?
+    suspend fun pickFile(extensions: List<String>): PlatformFile?
 }
 
 enum class MediaType {
-    IMAGE, DOCUMENT, AUDIO
+    IMAGE, DOCUMENT, AUDIO, MODEL
 }
 
 data class PlatformFile(

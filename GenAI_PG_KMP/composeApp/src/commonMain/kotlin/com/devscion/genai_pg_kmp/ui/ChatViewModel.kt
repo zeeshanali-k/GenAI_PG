@@ -9,12 +9,15 @@ import co.touchlab.kermit.Logger
 import com.devscion.genai_pg_kmp.domain.FilePicker
 import com.devscion.genai_pg_kmp.domain.LLMModelManager
 import com.devscion.genai_pg_kmp.domain.MediaType
+import com.devscion.genai_pg_kmp.domain.ModelSettings
 import com.devscion.genai_pg_kmp.domain.PlatformDetailProvider
 import com.devscion.genai_pg_kmp.domain.PlatformFile
 import com.devscion.genai_pg_kmp.domain.model.ChatHistoryItem
+import com.devscion.genai_pg_kmp.domain.model.EmbeddingModel
 import com.devscion.genai_pg_kmp.domain.model.Model
 import com.devscion.genai_pg_kmp.domain.model.ModelManagerOption
 import com.devscion.genai_pg_kmp.domain.model.Platform
+import com.devscion.genai_pg_kmp.domain.model.Tokenizer
 import com.devscion.genai_pg_kmp.domain.model.androidOptions
 import com.devscion.genai_pg_kmp.domain.model.iOSOptions
 import com.devscion.genai_pg_kmp.domain.rag.RAGDocument
@@ -43,7 +46,8 @@ import kotlin.uuid.Uuid
 
 class ChatViewModel(
     private val platformDetailProvider: PlatformDetailProvider,
-    private val filePicker: FilePicker
+    private val filePicker: FilePicker,
+    private val modelSettings: ModelSettings
 ) : ViewModel(), KoinComponent {
 
     private lateinit var permissionsController: PermissionsController
@@ -53,7 +57,13 @@ class ChatViewModel(
 
     private val modelManagerState = MutableStateFlow(
         ModelManagerState(
-            modelManagerOptions = loadModelManagerOptions()
+            modelManagerOptions = loadModelManagerOptions(),
+            embeddingModels = EmbeddingModel.EMBEDDING_MODELS.map {
+                it.copy(localPath = modelSettings.getPath(it.id))
+            },
+            tokenizerModels = Tokenizer.TOKENIZER_MODELS.map {
+                it.copy(localPath = modelSettings.getPath(it.id))
+            }
         )
     )
     private val chatHistoryState = MutableStateFlow(ChatHistory())
@@ -99,6 +109,40 @@ class ChatViewModel(
                 )
             }
             return
+        }
+
+        val selectedLLM = modelManagerState.value.selectedLLM!!
+        val isVisionNeeded = documentsState.value.documents.any { it.type == MediaType.IMAGE }
+        val isRAGNeeded = documentsState.value.documents.any { it.type == MediaType.DOCUMENT }
+
+        // Validation: Vision
+        if (isVisionNeeded && selectedLLM.isVisionEnabled.not()) {
+            modelManagerState.update { it.copy(ragError = "Selected model does not support Vision (images).") }
+            return
+        }
+
+        // Validation: RAG
+        if (isRAGNeeded) {
+            if (modelManagerState.value.selectedEmbeddingModel == null || modelManagerState.value.selectedTokenizer == null) {
+                modelManagerState.update { it.copy(ragError = "Please select an Embedding Model and Tokenizer for RAG.") }
+                return
+            }
+        }
+
+        // Validation: Local Paths
+        if (selectedLLM.localPath == null) {
+            modelManagerState.update { it.copy(ragError = "Please select the model file for ${selectedLLM.name}") }
+            return
+        }
+        if (isRAGNeeded) {
+            if (modelManagerState.value.selectedEmbeddingModel?.localPath == null) {
+                modelManagerState.update { it.copy(ragError = "Please select the file for Embedding Model") }
+                return
+            }
+            if (modelManagerState.value.selectedTokenizer?.localPath == null) {
+                modelManagerState.update { it.copy(ragError = "Please select the file for Tokenizer") }
+                return
+            }
         }
         llmResponseJob = viewModelScope.launch {
 
@@ -179,7 +223,9 @@ class ChatViewModel(
     }
 
     fun stopGeneratingResponse() {
-        modelManager!!.stopResponseGeneration()
+        viewModelScope.launch {
+            modelManager!!.stopResponseGeneration()
+        }
     }
 
     private fun resetInputField() {
@@ -230,13 +276,16 @@ class ChatViewModel(
     }
 
     fun onRuntimeSelected(modelManagerOption: ModelManagerOption) {
+        val models = Model.models(
+            modelManagerOption.type,
+            platformDetailProvider.getPlatform()
+        )
         modelManagerState.update {
             it.copy(
                 selectedManager = modelManagerOption,
-                llmList = Model.models(
-                    modelManagerOption.type,
-                    platformDetailProvider.getPlatform()
-                )
+                llmList = models.map {
+                    it.copy(localPath = modelSettings.getPath(it.id))
+                }
             )
         }
 
@@ -245,24 +294,135 @@ class ChatViewModel(
         modelManager = getKoin().get(named(modelManagerOption.type))
     }
 
-    fun onLLMSelected(model: Model) {
+    fun onModelSelected(model: Model) {
+        if (model.id == modelManagerState.value.selectedLLM?.id) return
         modelManagerState.update {
             it.copy(
                 selectedLLM = model,
-                isLoadingModel = true
+                showModelSelection = false
+            )
+        }
+        onFilePickForModel()
+    }
+
+    fun onEmbeddingModelSelected(model: EmbeddingModel) {
+        modelManagerState.update {
+            it.copy(
+                selectedEmbeddingModel = model,
+                showEmbeddingSelection = false
+            )
+        }
+    }
+
+    fun onTokenizerSelected(tokenizer: Tokenizer) {
+        modelManagerState.update {
+            it.copy(
+                selectedTokenizer = tokenizer,
+                showTokenizerSelection = false
+            )
+        }
+    }
+
+    fun onFilePickForModel() {
+        viewModelScope.launch {
+            if (modelManagerState.value.selectedLLM!!.localPath.isNullOrEmpty().not()) {
+                loadModel()
+                return@launch
+            }
+            val file =
+                filePicker.pickFile(modelManagerState.value.selectedLLM!!.supportedFormats.map { it.format })
+            if (file != null) {
+                modelManagerState.update { state ->
+                    val updatedModel = state.selectedLLM?.copy(localPath = file.pathOrUri)
+                    updatedModel?.let { modelSettings.savePath(it.id, it.localPath) }
+                    state.copy(
+                        selectedLLM = updatedModel,
+                    )
+                }
+                loadModel()
+            }
+        }
+    }
+
+    private fun loadModel() {
+        modelManagerState.update {
+            it.copy(
+                isLoadingModel = true,
+                modelManagerError = ModelManagerError.Initial
             )
         }
         viewModelScope.launch {
-            val isLoaded = modelManager!!.loadModel(model)
+            val selectedModel = modelManagerState.value.selectedLLM!!
+            val isLoaded = modelManager!!.loadModel(selectedModel)
             modelManagerState.update {
                 it.copy(
                     isLoadingModel = false,
-                    modelManagerError = if (isLoaded) it.modelManagerError
+                    modelManagerError = if (isLoaded) ModelManagerError.Initial
                     else ModelManagerError.FailedToLoadModel,
-                    selectedLLM = if (isLoaded) it.selectedLLM else null,
                 )
             }
+            if (isLoaded.not()) {
+                resetModelPath(selectedModel)
+                onFilePickForModel()
+            }
         }
+    }
+
+    private fun resetModelPath(selectedModel: Model) {
+        modelSettings.savePath(selectedModel.id, null)
+        modelManagerState.update {
+            it.copy(
+                llmList = it.llmList?.map {
+                    if (it.id == selectedModel.id) it.copy(
+                        localPath = null
+                    ) else it
+                },
+                selectedLLM = selectedModel.copy(localPath = null)
+            )
+        }
+    }
+
+    fun onFilePickForEmbedding() {
+        viewModelScope.launch {
+            val file = filePicker.pickFile(listOf("tflite", "bin"))
+            if (file != null) {
+                modelManagerState.update { state ->
+                    val updatedModel =
+                        state.selectedEmbeddingModel?.copy(localPath = file.pathOrUri)
+                    updatedModel?.let { modelSettings.savePath(it.id, it.localPath) }
+                    state.copy(selectedEmbeddingModel = updatedModel)
+                }
+            }
+        }
+    }
+
+    fun onFilePickForTokenizer() {
+        viewModelScope.launch {
+            val file = filePicker.pickFile(listOf("model", "bin"))
+            if (file != null) {
+                modelManagerState.update { state ->
+                    val updatedTokenizer = state.selectedTokenizer?.copy(localPath = file.pathOrUri)
+                    updatedTokenizer?.let { modelSettings.savePath(it.id, it.localPath) }
+                    state.copy(selectedTokenizer = updatedTokenizer)
+                }
+            }
+        }
+    }
+
+    fun toggleEmbeddingSelection() {
+        modelManagerState.update {
+            it.copy(showEmbeddingSelection = !it.showEmbeddingSelection)
+        }
+    }
+
+    fun toggleTokenizerSelection() {
+        modelManagerState.update {
+            it.copy(showTokenizerSelection = !it.showTokenizerSelection)
+        }
+    }
+
+    fun resetRagError() {
+        modelManagerState.update { it.copy(ragError = null) }
     }
 
     fun toggleManagerSelection() {
@@ -340,10 +500,10 @@ class ChatViewModel(
         }
 
         try {
-            modelManagerState.value.selectedLLM!!.let {
+            modelManagerState.value.let { state ->
                 modelManager!!.loadEmbeddingModel(
-                    it.embeddingModel,
-                    it.tokenizerModel,
+                    state.selectedEmbeddingModel!!.localPath!!,
+                    state.selectedTokenizer!!.localPath!!,
                 )
             }
             pendingDocs.forEachIndexed { index, doc ->

@@ -1,6 +1,7 @@
 package com.devscion.genai_pg_kmp.data.rag
 
 import co.touchlab.kermit.Logger
+import com.devscion.genai_pg_kmp.domain.ModelPathProvider
 import com.devscion.genai_pg_kmp.domain.rag.RAGDocument
 import com.devscion.genai_pg_kmp.domain.rag.RAGManager
 import com.google.ai.edge.localagents.rag.chains.ChainConfig
@@ -20,7 +21,9 @@ import kotlin.jvm.optionals.getOrNull
 /**
  * RAG manager implementation for Android MediaPipe.
  */
-class MediaPipeRAGManager() : RAGManager {
+class MediaPipeRAGManager(
+    private val modelPathProvider: ModelPathProvider,
+) : RAGManager {
 
 
     private var chainConfig: ChainConfig<String>? = null
@@ -43,8 +46,8 @@ class MediaPipeRAGManager() : RAGManager {
                 return@withContext true
             }
             embedder = GeckoEmbeddingModel(
-                embeddingModelPath,
-                Optional.of(tokenizerPath),
+                modelPathProvider.resolvePath(embeddingModelPath),
+                Optional.ofNullable(modelPathProvider.resolvePath(tokenizerPath)),
                 false
             )
             chainConfig = ChainConfig.create(getSemanticMemory())

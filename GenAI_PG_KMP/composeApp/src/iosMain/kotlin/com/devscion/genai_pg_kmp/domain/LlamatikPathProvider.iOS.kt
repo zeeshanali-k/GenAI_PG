@@ -2,7 +2,7 @@ package com.devscion.genai_pg_kmp.domain
 
 import platform.Foundation.NSBundle
 
-class LlamatikPathProviderIOS() : LlamatikPathProvider {
+class LlamatikPathProviderIOS() : ModelPathProvider {
 
     override fun getPath(modelName: String): String? {
         return try {

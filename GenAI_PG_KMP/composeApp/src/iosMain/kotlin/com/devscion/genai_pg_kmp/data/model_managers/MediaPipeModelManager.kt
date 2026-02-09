@@ -3,6 +3,7 @@
 package com.devscion.genai_pg_kmp.data.model_managers
 
 import com.devscion.genai_pg_kmp.domain.LLMModelManager
+import com.devscion.genai_pg_kmp.domain.PlatformFile
 import com.devscion.genai_pg_kmp.domain.SwiftModelManager
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
 import com.devscion.genai_pg_kmp.domain.model.Model
@@ -35,11 +36,16 @@ class MediaPipeModelManager(
         swiftModelManager.close()
     }
 
-    override fun stopResponseGeneration() {
-        swiftModelManager.stopResponseGeneration()
+    override suspend fun stopResponseGeneration() {
+        withContext(Dispatchers.IO) {
+            swiftModelManager.stopResponseGeneration()
+        }
     }
 
-    override suspend fun sendPromptToLLM(inputPrompt: String): Flow<ChunkedModelResponse> =
+    override suspend fun sendPromptToLLM(
+        inputPrompt: String,
+        attachments: List<PlatformFile>?
+    ): Flow<ChunkedModelResponse> =
         withContext(Dispatchers.IO) {
             callbackFlow {
                 swiftModelManager.generateResponseAsync(

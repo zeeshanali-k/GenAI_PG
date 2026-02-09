@@ -1,8 +1,10 @@
 package com.devscion.genai_pg_kmp.data.model_managers
 
+import android.net.Uri
+import android.os.ParcelFileDescriptor
+import android.provider.OpenableColumns
 import android.util.Log
 import com.devscion.genai_pg_kmp.domain.LLMModelManager
-import com.devscion.genai_pg_kmp.domain.LlamatikPathProviderAndroid
 import com.devscion.genai_pg_kmp.domain.MediaType
 import com.devscion.genai_pg_kmp.domain.PlatformFile
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
@@ -24,22 +26,29 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.withContext
+import org.koin.core.component.KoinComponent
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
 
 class LiteRTLM_ModelManager(
-    private val llamatikPathProviderAndroid: LlamatikPathProviderAndroid,
     override var ragManager: RAGManager
-) : LLMModelManager {
+) : LLMModelManager, KoinComponent {
 
     private var conversation: Conversation? = null
     override var systemMessage: String? = null
     private var engine: Engine? = null
+    private var modelPfd: ParcelFileDescriptor? = null
+    private val context by lazy { getKoin().get<android.content.Context>() }
 
     override suspend fun loadModel(model: Model): Boolean {
         return withContext(Dispatchers.IO) {
             try {
+                val resolvedModelPath =
+                    resolveModelPath(model.localPath ?: return@withContext false)
+                        ?: return@withContext false
                 val engineConfig = EngineConfig(
-                    modelPath = llamatikPathProviderAndroid.getPath(model.id)
-                        ?: return@withContext false,
+                    modelPath = resolvedModelPath,
                     backend = model.backend.toLiteRTLMBackend(),
                     maxNumTokens = model.maxTokens,
                     visionBackend = if (model.isVisionEnabled) Backend.GPU else null,
@@ -116,12 +125,7 @@ class LiteRTLM_ModelManager(
                                 "LiteRT_LMModelManager",
                                 "onDone"
                             )
-                            trySend(
-                                ChunkedModelResponse(
-                                    true,
-                                    ""
-                                )
-                            )
+                            this@callbackFlow.close()
                         }
 
                         override fun onError(throwable: Throwable) {
@@ -130,12 +134,7 @@ class LiteRTLM_ModelManager(
                                 "onError"
                             )
                             throwable.printStackTrace()
-                            trySend(
-                                ChunkedModelResponse(
-                                    true,
-                                    ""
-                                )
-                            )
+                            this@callbackFlow.close()
                         }
                     })
 
@@ -146,32 +145,88 @@ class LiteRTLM_ModelManager(
                             ""
                         )
                     )
-                    this@LiteRTLM_ModelManager.close()
                 }
             }
         }
-
-    override suspend fun loadEmbeddingModel(
-        embeddingModelPath: String,
-        tokenizerPath: String
-    ): Boolean {
-        return ragManager.loadEmbeddingModel(embeddingModelPath, tokenizerPath)
-    }
 
     override fun close() {
         engine?.close()
         engine = null
         conversation?.close()
         conversation = null
+        modelPfd?.close()
+        modelPfd = null
     }
 
-    override fun stopResponseGeneration() {
-        conversation?.cancelProcess()
+    override suspend fun stopResponseGeneration() {
+        withContext(Dispatchers.IO) {
+            conversation?.cancelProcess()
+        }
     }
 
 
     fun InferenceBackend.toLiteRTLMBackend(): Backend = when (this) {
         InferenceBackend.CPU -> Backend.CPU
         InferenceBackend.GPU -> Backend.GPU
+    }
+
+    private fun resolveModelPath(pathOrUri: String): String? {
+        if (!pathOrUri.startsWith("content://")) return pathOrUri
+        val uri = Uri.parse(pathOrUri)
+        return try {
+            modelPfd?.close()
+            modelPfd = context.contentResolver.openFileDescriptor(uri, "r")
+            val pfd = modelPfd ?: return null
+            val procPath = "/proc/self/fd/${pfd.fd}"
+            if (canOpenProcFd(procPath)) {
+                procPath
+            } else {
+                val displayName = queryDisplayName(uri) ?: "model"
+                modelPfd?.close()
+                modelPfd = null
+                copyUriToAppStorage(uri, displayName)
+            }
+        } catch (e: Exception) {
+            Log.e("LiteRTLM_ModelManager", "Failed to open model Uri: ${e.message}")
+            null
+        }
+    }
+
+    private fun canOpenProcFd(procPath: String): Boolean {
+        return try {
+            FileInputStream(procPath).use { }
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun queryDisplayName(uri: Uri): String? {
+        val cursor = context.contentResolver.query(uri, null, null, null, null)
+        cursor.use { c ->
+            if (c != null && c.moveToFirst()) {
+                val idx = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (idx >= 0) return c.getString(idx)
+            }
+        }
+        return null
+    }
+
+    private fun copyUriToAppStorage(uri: Uri, fileName: String): String? {
+        return try {
+            val targetDir =
+                context.getExternalFilesDir("models") ?: File(context.filesDir, "models")
+            if (!targetDir.exists() && !targetDir.mkdirs()) return null
+            val targetFile = File(targetDir, fileName)
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(targetFile).use { output ->
+                    input.copyTo(output)
+                }
+            } ?: return null
+            targetFile.absolutePath
+        } catch (e: Exception) {
+            Log.e("LiteRTLM_ModelManager", "Failed to copy model: ${e.message}")
+            null
+        }
     }
 }

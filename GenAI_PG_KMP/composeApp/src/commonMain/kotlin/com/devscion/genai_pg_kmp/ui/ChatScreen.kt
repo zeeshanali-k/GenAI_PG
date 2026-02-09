@@ -10,6 +10,7 @@ import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -49,8 +50,12 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.devscion.genai_pg_kmp.LocalAnimatedVisibilityScope
 import com.devscion.genai_pg_kmp.LocalTransitionScope
+import com.devscion.genai_pg_kmp.domain.MediaType
+import com.devscion.genai_pg_kmp.domain.model.EmbeddingModel
 import com.devscion.genai_pg_kmp.domain.model.Model
 import com.devscion.genai_pg_kmp.domain.model.ModelManagerOption
+import com.devscion.genai_pg_kmp.domain.model.Tokenizer
+import com.devscion.genai_pg_kmp.ui.components.AttachedDocumentChip
 import com.devscion.genai_pg_kmp.ui.components.ChatBubble
 import com.devscion.genai_pg_kmp.ui.components.ChatInput
 import com.devscion.genai_pg_kmp.ui.components.SelectionButton
@@ -61,16 +66,13 @@ import com.devscion.genai_pg_kmp.ui.state.ChatUIState
 import com.devscion.genai_pg_kmp.ui.state.DocumentsState
 import com.devscion.genai_pg_kmp.ui.state.ModelManagerError
 import com.devscion.genai_pg_kmp.ui.state.ModelManagerState
+import com.devscion.genai_pg_kmp.utils.toComposeImageBitmap
 import dev.icerock.moko.permissions.compose.BindEffect
 import dev.icerock.moko.permissions.compose.rememberPermissionsControllerFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
-import com.devscion.genai_pg_kmp.domain.MediaType
-import com.devscion.genai_pg_kmp.utils.toComposeImageBitmap
-import androidx.compose.foundation.Image
-import com.devscion.genai_pg_kmp.ui.components.AttachedDocumentChip
 
 @Composable
 fun ChatScreen(
@@ -113,10 +115,16 @@ fun ChatScreen(
                 onAttachMediaClick = viewModel::onAttachMedia,
                 toggleManagerSelection = viewModel::toggleManagerSelection,
                 onToggleModelSelection = viewModel::toggleModelSelection,
+                onToggleEmbeddingSelection = viewModel::toggleEmbeddingSelection,
+                onToggleTokenizerSelection = viewModel::toggleTokenizerSelection,
                 onStopClick = viewModel::stopGeneratingResponse,
                 onToggleRuntimeSelection = viewModel::toggleManagerSelection,
                 onRuntimeSelected = viewModel::onRuntimeSelected,
-                onModelSelected = viewModel::onLLMSelected,
+                onModelSelected = viewModel::onModelSelected,
+                onEmbeddingSelected = viewModel::onEmbeddingModelSelected,
+                onTokenizerSelected = viewModel::onTokenizerSelected,
+                onFilePickForEmbedding = viewModel::onFilePickForEmbedding,
+                onFilePickForTokenizer = viewModel::onFilePickForTokenizer,
                 modelManagerState = it.modelManagerState,
                 chatHistory = it.chatHistory,
                 documentsState = it.documentsState,
@@ -127,6 +135,7 @@ fun ChatScreen(
 
         (uiState as? ChatUIState.Success)?.ChatScreenDialogs(
             onResetError = viewModel::resetError,
+            onResetRagError = viewModel::resetRagError
         )
     }
 }
@@ -139,6 +148,8 @@ fun ChatHistoryContent(
     chatHistory: ChatHistory,
     inputFieldState: TextFieldState,
     onToggleModelSelection: () -> Unit,
+    onToggleEmbeddingSelection: () -> Unit,
+    onToggleTokenizerSelection: () -> Unit,
     onAttachMediaClick: () -> Unit,
     onSendClick: () -> Unit,
     onStopClick: () -> Unit,
@@ -146,9 +157,14 @@ fun ChatHistoryContent(
     onToggleRuntimeSelection: () -> Unit,
     onModelSelected: (Model) -> Unit,
     onRuntimeSelected: (ModelManagerOption) -> Unit,
+    onEmbeddingSelected: (EmbeddingModel) -> Unit,
+    onTokenizerSelected: (Tokenizer) -> Unit,
+    onFilePickForEmbedding: () -> Unit,
+    onFilePickForTokenizer: () -> Unit,
     documentsState: DocumentsState,
     onRemoveDocument: (String) -> Unit,
 ) {
+    val isRAGEnabled = documentsState.documents.any { it.type == MediaType.DOCUMENT }
     SharedTransitionLayout(modifier) {
         CompositionLocalProvider(LocalTransitionScope provides this) {
             Box(Modifier.fillMaxSize()) {
@@ -224,6 +240,70 @@ fun ChatHistoryContent(
                         }
                     }
 
+                    if (modelManagerState.selectedLLM != null && isRAGEnabled) {
+                        Row(
+                            modifier = Modifier
+                                .animateContentSize(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            // Embedding Selection Button
+                            AnimatedContent(
+                                modifier = Modifier.weight(1f),
+                                targetState = modelManagerState.showEmbeddingSelection,
+                                transitionSpec = { EnterTransition.None togetherWith ExitTransition.None }
+                            ) { showEmbeddingSelection ->
+                                CompositionLocalProvider(LocalAnimatedVisibilityScope provides this) {
+                                    SelectionButton(
+                                        modifier = with(LocalTransitionScope.current!!) {
+                                            Modifier.fillMaxWidth()
+                                                .then(
+                                                    if (showEmbeddingSelection.not())
+                                                        Modifier.sharedBounds(
+                                                            rememberSharedContentState("optionSelectionContent3"),
+                                                            LocalAnimatedVisibilityScope.current!!,
+                                                            resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(),
+                                                        )
+                                                    else Modifier
+                                                )
+                                        },
+                                        title = modelManagerState.selectedEmbeddingModel?.name
+                                            ?: "Select Embedding",
+                                        isSelected = false,
+                                        onClick = onToggleEmbeddingSelection,
+                                    )
+                                }
+                            }
+
+                            // Tokenizer Selection Button
+                            AnimatedContent(
+                                modifier = Modifier.weight(1f),
+                                targetState = modelManagerState.showTokenizerSelection,
+                                transitionSpec = { EnterTransition.None togetherWith ExitTransition.None }
+                            ) { showTokenizerSelection ->
+                                CompositionLocalProvider(LocalAnimatedVisibilityScope provides this) {
+                                    SelectionButton(
+                                        modifier = with(LocalTransitionScope.current!!) {
+                                            Modifier.fillMaxWidth()
+                                                .then(
+                                                    if (showTokenizerSelection.not())
+                                                        Modifier.sharedBounds(
+                                                            rememberSharedContentState("optionSelectionContent4"),
+                                                            LocalAnimatedVisibilityScope.current!!,
+                                                            resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(),
+                                                        )
+                                                    else Modifier
+                                                )
+                                        },
+                                        title = modelManagerState.selectedTokenizer?.name
+                                            ?: "Select Tokenizer",
+                                        isSelected = false,
+                                        onClick = onToggleTokenizerSelection,
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     LazyColumn(
                         Modifier.fillMaxWidth()
                             .weight(1f)
@@ -260,7 +340,8 @@ fun ChatHistoryContent(
                                         // Render Attachments
                                         item.attachments.forEach { doc ->
                                             if (doc.type == MediaType.IMAGE && doc.platformFile?.bytes != null) {
-                                                val bitmap = doc.platformFile.bytes.toComposeImageBitmap()
+                                                val bitmap =
+                                                    doc.platformFile.bytes.toComposeImageBitmap()
                                                 Image(
                                                     bitmap = bitmap,
                                                     contentDescription = "Attached Image",
@@ -301,81 +382,164 @@ fun ChatHistoryContent(
                     )
                 }
 
-                Row(
+                Column(
                     Modifier
-                        .align(Alignment.TopCenter)
+                        .align(Alignment.TopCenter),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     val scope = rememberCoroutineScope()
-                    // Manager selection dialog
-                    AnimatedContent(
-                        targetState = modelManagerState.showManagerSelection,
-                        transitionSpec = { EnterTransition.None togetherWith ExitTransition.None }
-                    ) { showManagerSelection ->
-                        CompositionLocalProvider(LocalAnimatedVisibilityScope provides this) {
-                            if (showManagerSelection) {
-                                OptionSelectionContent(
-                                    modifier = with(LocalTransitionScope.current!!) {
-                                        Modifier
-                                            .weight(1f)
-                                            .sharedBounds(
-                                                rememberSharedContentState("optionSelectionContent1"),
-                                                LocalAnimatedVisibilityScope.current!!,
-                                                resizeMode = SharedTransitionScope.ResizeMode.RemeasureToBounds,
-                                            )
-                                    },
-                                    title = "Select Runtime",
-                                    options = modelManagerState.modelManagerOptions,
-                                    selectedOption = modelManagerState.selectedManager,
-                                    onDismiss = onToggleRuntimeSelection,
-                                    onRuntimeSelection = {
-                                        onRuntimeSelected(it)
-                                        onToggleRuntimeSelection()
-                                        scope.launch(Dispatchers.Main.immediate) {
-                                            delay(100)
+                    Row {
+                        // Manager selection dialog
+                        AnimatedContent(
+                            targetState = modelManagerState.showManagerSelection,
+                            transitionSpec = { EnterTransition.None togetherWith ExitTransition.None }
+                        ) { showManagerSelection ->
+                            CompositionLocalProvider(LocalAnimatedVisibilityScope provides this) {
+                                if (showManagerSelection) {
+                                    OptionSelectionContent(
+                                        modifier = with(LocalTransitionScope.current!!) {
+                                            Modifier
+                                                .weight(1f)
+                                                .sharedBounds(
+                                                    rememberSharedContentState("optionSelectionContent1"),
+                                                    LocalAnimatedVisibilityScope.current!!,
+                                                    resizeMode = SharedTransitionScope.ResizeMode.RemeasureToBounds,
+                                                )
+                                        },
+                                        title = "Select Runtime",
+                                        options = modelManagerState.modelManagerOptions,
+                                        selectedOption = modelManagerState.selectedManager,
+                                        getName = { it.managerName },
+                                        getDescription = {
+                                            "Features: ${it.managerName}"
+                                        },
+                                        getDownloadUrl = { null },
+                                        getLocalPath = { null },
+                                        onDismiss = onToggleRuntimeSelection,
+                                        onSelect = {
+                                            onRuntimeSelected(it)
+                                            onToggleRuntimeSelection()
+                                            scope.launch(Dispatchers.Main.immediate) {
+                                                delay(100)
+                                                onToggleModelSelection()
+                                            }
+                                        },
+                                        onFileSelect = { _ -> },
+                                        showStatus = false,
+                                        showDownload = false,
+                                        showFileSelect = false,
+                                    )
+                                } else {
+                                    Spacer(Modifier.weight(1f))
+                                }
+                            }
+                        }
+
+                        AnimatedContent(
+                            targetState = modelManagerState.showModelSelection && modelManagerState.llmList.isNullOrEmpty()
+                                .not(),
+                            transitionSpec = { EnterTransition.None togetherWith ExitTransition.None }
+                        ) { showModelSelection ->
+                            CompositionLocalProvider(LocalAnimatedVisibilityScope provides this) {
+                                if (showModelSelection) {
+                                    OptionSelectionContent(
+                                        modifier = with(LocalTransitionScope.current!!) {
+                                            Modifier
+                                                .weight(1f)
+                                                .sharedBounds(
+                                                    rememberSharedContentState("optionSelectionContent2"),
+                                                    LocalAnimatedVisibilityScope.current!!,
+                                                    resizeMode = SharedTransitionScope.ResizeMode.RemeasureToBounds,
+                                                )
+                                        },
+                                        title = "Select Model",
+                                        options = modelManagerState.llmList ?: emptyList(),
+                                        selectedOption = modelManagerState.selectedLLM,
+                                        getName = { it.name },
+                                        getDescription = { it.description },
+                                        getDownloadUrl = { it.downloadUrl },
+                                        getLocalPath = { it.localPath },
+                                        onDismiss = onToggleModelSelection,
+                                        onSelect = {
+                                            onModelSelected(it)
                                             onToggleModelSelection()
-                                        }
-                                    },
-                                    getTitle = { name },
-                                    isSelected = { this == it },
-                                )
-                            } else {
-                                Spacer(Modifier.weight(1f))
+                                        },
+                                        onFileSelect = { _ -> },
+                                        maxListHeight = 500.dp,
+                                    )
+                                } else {
+                                    Spacer(Modifier.weight(1f))
+                                }
                             }
                         }
                     }
 
-                    // Model selection dialog
-                    AnimatedContent(
-                        targetState = modelManagerState.showModelSelection && modelManagerState.llmList.isNullOrEmpty()
-                            .not(),
-                        transitionSpec = { EnterTransition.None togetherWith ExitTransition.None }
-                    ) { showModelSelection ->
-                        CompositionLocalProvider(LocalAnimatedVisibilityScope provides this) {
-                            if (showModelSelection) {
-                                OptionSelectionContent(
-                                    modifier = with(LocalTransitionScope.current!!) {
-                                        Modifier
-                                            .weight(1f)
-                                            .heightIn(max = 500.dp)
-                                            .sharedBounds(
-                                                rememberSharedContentState("optionSelectionContent2"),
-                                                LocalAnimatedVisibilityScope.current!!,
-                                                resizeMode = SharedTransitionScope.ResizeMode.RemeasureToBounds,
-                                            )
-                                    },
-                                    title = "Select Model",
-                                    options = modelManagerState.llmList ?: emptyList(),
-                                    selectedOption = modelManagerState.selectedLLM,
-                                    onDismiss = onToggleModelSelection,
-                                    onRuntimeSelection = {
-                                        onModelSelected(it)
-                                        onToggleModelSelection()
-                                    },
-                                    getTitle = { name },
-                                    isSelected = { this == it },
-                                )
-                            } else {
-                                Spacer(Modifier.weight(1f))
+                    if (modelManagerState.showEmbeddingSelection || modelManagerState.showTokenizerSelection) {
+                        Row {
+                            AnimatedContent(
+                                targetState = modelManagerState.showEmbeddingSelection,
+                                transitionSpec = { EnterTransition.None togetherWith ExitTransition.None }
+                            ) { showEmbeddingSelection ->
+                                CompositionLocalProvider(LocalAnimatedVisibilityScope provides this) {
+                                    if (showEmbeddingSelection) {
+                                        OptionSelectionContent(
+                                            modifier = with(LocalTransitionScope.current!!) {
+                                                Modifier
+                                                    .weight(1f)
+                                                    .sharedBounds(
+                                                        rememberSharedContentState("optionSelectionContent3"),
+                                                        LocalAnimatedVisibilityScope.current!!,
+                                                        resizeMode = SharedTransitionScope.ResizeMode.RemeasureToBounds,
+                                                    )
+                                            },
+                                            title = "Select Embedding Model",
+                                            options = modelManagerState.embeddingModels,
+                                            selectedOption = modelManagerState.selectedEmbeddingModel,
+                                            getName = { it.name },
+                                            getDescription = { it.description },
+                                            getDownloadUrl = { it.downloadUrl },
+                                            getLocalPath = { it.localPath },
+                                            onDismiss = onToggleEmbeddingSelection,
+                                            onSelect = { onEmbeddingSelected(it) },
+                                            onFileSelect = { _ -> onFilePickForEmbedding() },
+                                        )
+                                    } else {
+                                        Spacer(Modifier.weight(1f))
+                                    }
+                                }
+                            }
+
+                            AnimatedContent(
+                                targetState = modelManagerState.showTokenizerSelection,
+                                transitionSpec = { EnterTransition.None togetherWith ExitTransition.None }
+                            ) { showTokenizerSelection ->
+                                CompositionLocalProvider(LocalAnimatedVisibilityScope provides this) {
+                                    if (showTokenizerSelection) {
+                                        OptionSelectionContent(
+                                            modifier = with(LocalTransitionScope.current!!) {
+                                                Modifier
+                                                    .weight(1f)
+                                                    .sharedBounds(
+                                                        rememberSharedContentState("optionSelectionContent4"),
+                                                        LocalAnimatedVisibilityScope.current!!,
+                                                        resizeMode = SharedTransitionScope.ResizeMode.RemeasureToBounds,
+                                                    )
+                                            },
+                                            title = "Select Tokenizer",
+                                            options = modelManagerState.tokenizerModels,
+                                            selectedOption = modelManagerState.selectedTokenizer,
+                                            getName = { it.name },
+                                            getDescription = { it.description },
+                                            getDownloadUrl = { it.downloadUrl },
+                                            getLocalPath = { it.localPath },
+                                            onDismiss = onToggleTokenizerSelection,
+                                            onSelect = { onTokenizerSelected(it) },
+                                            onFileSelect = { _ -> onFilePickForTokenizer() },
+                                        )
+                                    } else {
+                                        Spacer(Modifier.weight(1f))
+                                    }
+                                }
                             }
                         }
                     }
@@ -388,6 +552,7 @@ fun ChatHistoryContent(
 @Composable
 fun ChatUIState.Success.ChatScreenDialogs(
     onResetError: () -> Unit,
+    onResetRagError: () -> Unit,
 ) {
     if (modelManagerState.isLoadingModel) {
         Dialog(onDismissRequest = {}) {
@@ -440,6 +605,14 @@ fun ChatUIState.Success.ChatScreenDialogs(
             title = title!!,
             message = message!!,
             onDismiss = onResetError,
+        )
+    }
+
+    if (modelManagerState.ragError != null) {
+        ErrorMessageDialog(
+            title = "Incomplete Setup",
+            message = modelManagerState.ragError,
+            onDismiss = onResetRagError
         )
     }
 }

@@ -5,8 +5,8 @@ import android.graphics.BitmapFactory
 import android.util.Log
 import com.devscion.genai_pg_kmp.data.rag.MediaPipeRAGManager
 import com.devscion.genai_pg_kmp.domain.LLMModelManager
-import com.devscion.genai_pg_kmp.domain.LlamatikPathProvider
 import com.devscion.genai_pg_kmp.domain.MediaType
+import com.devscion.genai_pg_kmp.domain.ModelPathProvider
 import com.devscion.genai_pg_kmp.domain.PlatformFile
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
 import com.devscion.genai_pg_kmp.domain.model.InferenceBackend
@@ -29,8 +29,8 @@ import kotlinx.coroutines.withContext
 
 class MediaPipeModelManager(
     private val context: Context,
-    private val llamatikPathProvider: LlamatikPathProvider,
-    override var ragManager: RAGManager
+    override var ragManager: RAGManager,
+    private val modelPathProvider: ModelPathProvider,
 ) : LLMModelManager {
 
     private val sessionOptions: LlmInferenceSession.LlmInferenceSessionOptions.Builder =
@@ -43,14 +43,17 @@ class MediaPipeModelManager(
     private var llmInference: LlmInference? = null
 
     override suspend fun loadModel(model: Model): Boolean {
-        val modelPath = llamatikPathProvider.getPath(model.id) ?: return false
+        val modelPath = model.localPath ?: return false
         Log.d("MediaPipeModelManager", "modelPath -> $modelPath")
         if (modelPath.isEmpty()) {
             return false
         }
         return withContext(Dispatchers.IO) {
             try {
-                llmInferenceOptions.setModelPath(modelPath)
+                val resolvedModelPath =
+                    modelPathProvider.resolvePath(modelPath) ?: return@withContext false
+                Log.d("MediaPipeModelManager", "resolvedModelPath -> $resolvedModelPath")
+                llmInferenceOptions.setModelPath(resolvedModelPath)
                     .setMaxTopK(model.topK)
                     .setMaxTokens(model.maxTokens)
                     .setPreferredBackend(model.backend.toMediaPipeBackend())
@@ -60,7 +63,8 @@ class MediaPipeModelManager(
                 )
                 createSession(model)
                 true
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                e.printStackTrace()
                 false
             }
         }
@@ -139,18 +143,6 @@ class MediaPipeModelManager(
             }
         }
 
-    override suspend fun loadEmbeddingModel(
-        embeddingModelPath: String,
-        tokenizerPath: String
-    ): Boolean {
-        return ragManager.loadEmbeddingModel(
-            llamatikPathProvider.getPath(embeddingModelPath)
-                ?: throw IllegalArgumentException("Invalid model path"),
-            llamatikPathProvider.getPath(tokenizerPath)
-                ?: throw IllegalArgumentException("Invalid model path"),
-        )
-    }
-
     @OptIn(DelicateCoroutinesApi::class)
     override fun close() {
         inferenceSession?.cancelGenerateResponseAsync()
@@ -158,16 +150,15 @@ class MediaPipeModelManager(
         inferenceSession = null
         llmInference?.close()
         llmInference = null
-
         GlobalScope.launch {//TODO: remove GlobalScope
             (ragManager as? MediaPipeRAGManager)?.clearIndex()
         }
-        // Don't nullify ragManager as it might be reused or is injected
-        // ragManager = null
     }
 
-    override fun stopResponseGeneration() {
-        inferenceSession?.cancelGenerateResponseAsync()
+    override suspend fun stopResponseGeneration() {
+        withContext(Dispatchers.IO) {
+            inferenceSession?.cancelGenerateResponseAsync()
+        }
     }
 
 

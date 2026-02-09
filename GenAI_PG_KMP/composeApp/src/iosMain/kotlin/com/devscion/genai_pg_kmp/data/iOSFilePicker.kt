@@ -100,4 +100,42 @@ class iOSFilePicker : FilePicker {
             rootController?.presentViewController(documentPicker, animated = true, completion = null)
         }
     }
+    override suspend fun pickFile(extensions: List<String>): PlatformFile? {
+        return suspendCancellableCoroutine { continuation ->
+             val delegate = object : NSObject(), UIDocumentPickerDelegateProtocol {
+                override fun documentPicker(controller: UIDocumentPickerViewController, didPickDocumentsAtURLs: List<*>) {
+                    val url = didPickDocumentsAtURLs.firstOrNull() as? NSURL
+                    if (url != null) {
+                        // For models/files we want to persist permission if possible or just get the path
+                        // Models are large, we only need the path usually.
+                        val path = url.path // specific path
+                        val name = url.lastPathComponent ?: "unknown"
+                        continuation.resume(
+                            PlatformFile(
+                                name = name, 
+                                content = null, 
+                                pathOrUri = path ?: url.absoluteString ?: "", 
+                                type = MediaType.MODEL
+                            )
+                        )
+                    } else {
+                        continuation.resume(null)
+                    }
+                }
+
+                override fun documentPickerWasCancelled(controller: UIDocumentPickerViewController) {
+                    continuation.resume(null)
+                }
+            }
+
+            val documentPicker = UIDocumentPickerViewController(
+                documentTypes = listOf("public.data", "public.content"), 
+                inMode = UIDocumentPickerMode.UIDocumentPickerModeImport
+            )
+            documentPicker.delegate = delegate
+            
+            val rootController = UIApplication.sharedApplication.keyWindow?.rootViewController
+            rootController?.presentViewController(documentPicker, animated = true, completion = null)
+        }
+    }
 }

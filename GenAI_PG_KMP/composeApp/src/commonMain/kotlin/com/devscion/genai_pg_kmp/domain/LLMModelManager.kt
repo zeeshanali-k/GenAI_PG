@@ -15,7 +15,7 @@ interface LLMModelManager {
 
     fun close()
 
-    fun stopResponseGeneration()
+    suspend fun stopResponseGeneration()
 
     suspend fun sendPromptToLLM(
         inputPrompt: String,
@@ -29,7 +29,12 @@ interface LLMModelManager {
         ragManager.indexDocument(document)
     }
 
-    suspend fun loadEmbeddingModel(embeddingModelPath: String, tokenizerPath: String): Boolean
+    suspend fun loadEmbeddingModel(embeddingModelPath: String, tokenizerPath: String): Boolean {
+        return ragManager.loadEmbeddingModel(
+            embeddingModelPath,
+            tokenizerPath,
+        )
+    }
 
     suspend fun sendPromptWithRAG(
         inputPrompt: String,

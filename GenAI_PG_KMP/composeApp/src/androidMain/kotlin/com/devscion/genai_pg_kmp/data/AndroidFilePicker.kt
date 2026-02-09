@@ -17,15 +17,20 @@ class AndroidFilePicker(
 ) : FilePicker {
 
     private var launcher: ActivityResultLauncher<String>? = null
+    private var fileLauncher: ActivityResultLauncher<Array<String>>? = null
     private var activeContinuation: CancellableContinuation<PlatformFile?>? = null
 
     fun register(activity: ComponentActivity) {
         launcher = activity.registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
             onFilePicked(uri)
         }
+        fileLauncher =
+            activity.registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+                onFilePicked(uri, isModel = true)
+            }
     }
 
-    private fun onFilePicked(uri: Uri?) {
+    private fun onFilePicked(uri: Uri?, isModel: Boolean = false) {
         if (uri != null) {
             try {
                 val type = context.contentResolver.getType(uri)
@@ -44,6 +49,25 @@ class AndroidFilePicker(
                             pathOrUri = uri.toString(),
                             type = MediaType.IMAGE,
                             bytes = bytes
+                        )
+                    )
+                } else if (isModel) {
+                    // For models, we just need the URI/Path, content is not needed in memory usually
+                    // Persist permission for future access
+                    try {
+                        context.contentResolver.takePersistableUriPermission(
+                            uri,
+                            android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        )
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                    activeContinuation?.resume(
+                        PlatformFile(
+                            name = fileName,
+                            content = null, // Models are binary/large, don't load into string
+                            pathOrUri = uri.toString(),
+                            type = MediaType.MODEL
                         )
                     )
                 } else {
@@ -74,6 +98,18 @@ class AndroidFilePicker(
         return suspendCancellableCoroutine { continuation ->
             activeContinuation = continuation
             launcher?.launch("*/*") ?: run {
+                continuation.cancel(IllegalStateException("Launcher not registered. Call register(activity) first."))
+                activeContinuation = null
+            }
+        }
+    }
+
+    override suspend fun pickFile(extensions: List<String>): PlatformFile? {
+        return suspendCancellableCoroutine { continuation ->
+            activeContinuation = continuation
+            val mimeTypes = "application/octet-stream"
+
+            fileLauncher?.launch(arrayOf(mimeTypes)) ?: run {
                 continuation.cancel(IllegalStateException("Launcher not registered. Call register(activity) first."))
                 activeContinuation = null
             }
