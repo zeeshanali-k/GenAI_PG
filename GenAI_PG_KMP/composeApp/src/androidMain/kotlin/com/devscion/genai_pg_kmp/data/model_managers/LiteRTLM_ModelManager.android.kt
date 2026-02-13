@@ -10,6 +10,7 @@ import com.devscion.genai_pg_kmp.domain.PlatformFile
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
 import com.devscion.genai_pg_kmp.domain.model.InferenceBackend
 import com.devscion.genai_pg_kmp.domain.model.Model
+import com.devscion.genai_pg_kmp.domain.model.ModelManagerRuntimeFeature
 import com.devscion.genai_pg_kmp.domain.rag.RAGManager
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Content
@@ -51,7 +52,8 @@ class LiteRTLM_ModelManager(
                     modelPath = resolvedModelPath,
                     backend = model.backend.toLiteRTLMBackend(),
                     maxNumTokens = model.maxTokens,
-                    visionBackend = if (model.isVisionEnabled) Backend.GPU else null,
+                    visionBackend = if (model.features.contains(ModelManagerRuntimeFeature.VISION)) Backend.GPU else null,
+                    audioBackend = if (model.features.contains(ModelManagerRuntimeFeature.AUDIO)) Backend.GPU else null
                     // optional: Pick a writable dir. This can improve 2nd load time.
                     // cacheDir = "/tmp/" or context.cacheDir.path (for Android)
                 )
@@ -80,7 +82,7 @@ class LiteRTLM_ModelManager(
 
     override suspend fun sendPromptToLLM(
         inputPrompt: String,
-        attachments: List<PlatformFile>?
+        attachments: List<PlatformFile>
     ): Flow<ChunkedModelResponse> =
         withContext(Dispatchers.IO) {
             callbackFlow {
@@ -90,8 +92,8 @@ class LiteRTLM_ModelManager(
                 val contents = mutableListOf<Content>()
                 contents.add(Content.Text(inputPrompt))
 
-                attachments?.filter { it.type == MediaType.IMAGE && it.bytes != null }
-                    ?.forEach { file ->
+                attachments.filter { it.type == MediaType.IMAGE && it.bytes != null }
+                    .forEach { file ->
                         Log.d("LiteRT_LMModelManager", "file-> $file")
 
                         contents.add(Content.ImageBytes(file.bytes!!))

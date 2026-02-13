@@ -44,12 +44,13 @@ class MediaPipeModelManager(
 
     override suspend fun sendPromptToLLM(
         inputPrompt: String,
-        attachments: List<PlatformFile>?
+        attachments: List<PlatformFile>
     ): Flow<ChunkedModelResponse> =
         withContext(Dispatchers.IO) {
             callbackFlow {
                 swiftModelManager.generateResponseAsync(
-                    inputPrompt,
+                    inputText = inputPrompt,
+                    attachments = attachments,
                     { chunk ->
                         println("LLMResponse chunk-> $chunk")
                         chunk.let {

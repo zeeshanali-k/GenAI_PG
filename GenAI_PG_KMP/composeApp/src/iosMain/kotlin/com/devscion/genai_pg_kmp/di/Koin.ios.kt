@@ -6,8 +6,8 @@ import com.devscion.genai_pg_kmp.data.model_managers.LiteRT_LMModelManager
 import com.devscion.genai_pg_kmp.data.model_managers.MediaPipeModelManager
 import com.devscion.genai_pg_kmp.domain.FilePicker
 import com.devscion.genai_pg_kmp.domain.LLMModelManager
-import com.devscion.genai_pg_kmp.domain.LlamatikPathProviderIOS
 import com.devscion.genai_pg_kmp.domain.ModelPathProvider
+import com.devscion.genai_pg_kmp.domain.ModelPathProviderIOS
 import com.devscion.genai_pg_kmp.domain.ModelSettings
 import com.devscion.genai_pg_kmp.domain.PlatformDetailProvider
 import com.devscion.genai_pg_kmp.domain.PlatformDetailProviderIOS
@@ -28,7 +28,7 @@ actual val platformKoinModule = module {
         qualifier = named(ModelManagerRuntime.MEDIA_PIPE)
     } bind LLMModelManager::class
 
-    factoryOf(::LlamatikPathProviderIOS) bind ModelPathProvider::class
+    factoryOf(::ModelPathProviderIOS) bind ModelPathProvider::class
 
     singleOf(::PlatformDetailProviderIOS) bind PlatformDetailProvider::class
 

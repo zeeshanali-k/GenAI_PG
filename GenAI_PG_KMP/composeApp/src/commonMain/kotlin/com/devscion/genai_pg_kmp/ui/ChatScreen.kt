@@ -44,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -54,7 +55,7 @@ import com.devscion.genai_pg_kmp.domain.MediaType
 import com.devscion.genai_pg_kmp.domain.model.EmbeddingModel
 import com.devscion.genai_pg_kmp.domain.model.Model
 import com.devscion.genai_pg_kmp.domain.model.ModelManagerOption
-import com.devscion.genai_pg_kmp.domain.model.Tokenizer
+import com.devscion.genai_pg_kmp.domain.model.TokenizerModel
 import com.devscion.genai_pg_kmp.ui.components.AttachedDocumentChip
 import com.devscion.genai_pg_kmp.ui.components.ChatBubble
 import com.devscion.genai_pg_kmp.ui.components.ChatInput
@@ -129,6 +130,7 @@ fun ChatScreen(
                 chatHistory = it.chatHistory,
                 documentsState = it.documentsState,
                 onRemoveDocument = viewModel::removeDocument,
+                onFilePickForModel = viewModel::onFilePickForModel,
             )
         }
 
@@ -158,9 +160,10 @@ fun ChatHistoryContent(
     onModelSelected: (Model) -> Unit,
     onRuntimeSelected: (ModelManagerOption) -> Unit,
     onEmbeddingSelected: (EmbeddingModel) -> Unit,
-    onTokenizerSelected: (Tokenizer) -> Unit,
-    onFilePickForEmbedding: () -> Unit,
-    onFilePickForTokenizer: () -> Unit,
+    onTokenizerSelected: (TokenizerModel) -> Unit,
+    onFilePickForEmbedding: (EmbeddingModel) -> Unit,
+    onFilePickForTokenizer: (TokenizerModel) -> Unit,
+    onFilePickForModel: (Model) -> Unit,
     documentsState: DocumentsState,
     onRemoveDocument: (String) -> Unit,
 ) {
@@ -349,7 +352,7 @@ fun ChatHistoryContent(
                                                         .fillMaxWidth()
                                                         .heightIn(max = 200.dp)
                                                         .clip(MaterialTheme.shapes.medium),
-                                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                                    contentScale = ContentScale.Crop
                                                 )
                                             } else {
                                                 // Read-only chip for documents
@@ -409,22 +412,21 @@ fun ChatHistoryContent(
                                         title = "Select Runtime",
                                         options = modelManagerState.modelManagerOptions,
                                         selectedOption = modelManagerState.selectedManager,
-                                        getName = { it.managerName },
-                                        getDescription = {
-                                            "Features: ${it.managerName}"
-                                        },
+                                        getName = { managerName },
+                                        getTags = { features.map { it.title } },
+                                        getDescription = { desciption },
                                         getDownloadUrl = { null },
                                         getLocalPath = { null },
                                         onDismiss = onToggleRuntimeSelection,
                                         onSelect = {
-                                            onRuntimeSelected(it)
+                                            onRuntimeSelected(this)
                                             onToggleRuntimeSelection()
                                             scope.launch(Dispatchers.Main.immediate) {
-                                                delay(100)
+                                                delay(250)
                                                 onToggleModelSelection()
                                             }
                                         },
-                                        onFileSelect = { _ -> },
+                                        onFileSelect = {},
                                         showStatus = false,
                                         showDownload = false,
                                         showFileSelect = false,
@@ -455,17 +457,20 @@ fun ChatHistoryContent(
                                         title = "Select Model",
                                         options = modelManagerState.llmList ?: emptyList(),
                                         selectedOption = modelManagerState.selectedLLM,
-                                        getName = { it.name },
-                                        getDescription = { it.description },
-                                        getDownloadUrl = { it.downloadUrl },
-                                        getLocalPath = { it.localPath },
+                                        getName = { name },
+                                        getDescription = { description },
+                                        getDownloadUrl = { downloadUrl },
+                                        getLocalPath = { localPath },
                                         onDismiss = onToggleModelSelection,
                                         onSelect = {
-                                            onModelSelected(it)
+                                            onModelSelected(this)
                                             onToggleModelSelection()
                                         },
-                                        onFileSelect = { _ -> },
+                                        onFileSelect = {
+                                            onFilePickForModel(this)
+                                        },
                                         maxListHeight = 500.dp,
+                                        getTags = { features.map { it.title } }
                                     )
                                 } else {
                                     Spacer(Modifier.weight(1f))
@@ -495,13 +500,14 @@ fun ChatHistoryContent(
                                             title = "Select Embedding Model",
                                             options = modelManagerState.embeddingModels,
                                             selectedOption = modelManagerState.selectedEmbeddingModel,
-                                            getName = { it.name },
-                                            getDescription = { it.description },
-                                            getDownloadUrl = { it.downloadUrl },
-                                            getLocalPath = { it.localPath },
+                                            getName = { name },
+                                            getDescription = { description },
+                                            getDownloadUrl = { downloadUrl },
+                                            getLocalPath = { localPath },
                                             onDismiss = onToggleEmbeddingSelection,
-                                            onSelect = { onEmbeddingSelected(it) },
-                                            onFileSelect = { _ -> onFilePickForEmbedding() },
+                                            onSelect = { onEmbeddingSelected(this) },
+                                            onFileSelect = onFilePickForEmbedding,
+                                            getTags = { emptyList() }
                                         )
                                     } else {
                                         Spacer(Modifier.weight(1f))
@@ -528,13 +534,14 @@ fun ChatHistoryContent(
                                             title = "Select Tokenizer",
                                             options = modelManagerState.tokenizerModels,
                                             selectedOption = modelManagerState.selectedTokenizer,
-                                            getName = { it.name },
-                                            getDescription = { it.description },
-                                            getDownloadUrl = { it.downloadUrl },
-                                            getLocalPath = { it.localPath },
+                                            getName = { name },
+                                            getDescription = { description },
+                                            getDownloadUrl = { downloadUrl },
+                                            getLocalPath = { localPath },
                                             onDismiss = onToggleTokenizerSelection,
-                                            onSelect = { onTokenizerSelected(it) },
-                                            onFileSelect = { _ -> onFilePickForTokenizer() },
+                                            onSelect = { onTokenizerSelected(this) },
+                                            onFileSelect = onFilePickForTokenizer,
+                                            getTags = { emptyList() }
                                         )
                                     } else {
                                         Spacer(Modifier.weight(1f))

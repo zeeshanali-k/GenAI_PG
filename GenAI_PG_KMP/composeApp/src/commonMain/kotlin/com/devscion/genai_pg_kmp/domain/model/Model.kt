@@ -18,7 +18,7 @@ data class Model(
     val temperature: Float = 0.5f,
     val topP: Float = 0.95f,
     val randomSeed: Int = 0,
-    val isVisionEnabled: Boolean = false,
+    val features: List<ModelManagerRuntimeFeature> = listOf(ModelManagerRuntimeFeature.TEXT),
     val modelType: ModelManagerRuntime,
 //    val embeddingModel: String = "embeddinggemma-300M_seq256_mixed-precision.tflite",
 //    val tokenizerModel: String = "sentencepiece.model",
@@ -63,7 +63,11 @@ data class Model(
                     name = "Gemma 3n E2B (Multimodal)",
                     size = 2100,
                     modelType = modelType,
-                    isVisionEnabled = true,
+                    features = listOf(
+                        ModelManagerRuntimeFeature.TEXT,
+                        ModelManagerRuntimeFeature.AUDIO,
+                        ModelManagerRuntimeFeature.VISION
+                    ),
                     backend = InferenceBackend.CPU,
                     temperature = 1.0f,
                     topK = 64,
@@ -78,7 +82,11 @@ data class Model(
                     name = "Gemma 3n E4B (Multimodal)",
                     size = 3400,
                     modelType = modelType,
-                    isVisionEnabled = true,
+                    features = listOf(
+                        ModelManagerRuntimeFeature.TEXT,
+                        ModelManagerRuntimeFeature.AUDIO,
+                        ModelManagerRuntimeFeature.VISION
+                    ),
                     backend = InferenceBackend.CPU,
                     temperature = 1.0f,
                     topK = 64,
@@ -301,6 +309,20 @@ data class Model(
             val modelType = ModelManagerRuntime.MEDIA_PIPE
             add(
                 Model(
+                    id = "gemma2-2b-it-gpu-int8.bin",
+                    name = "Gemma2 2B IT (GPU)",
+                    size = 2630,
+                    backend = InferenceBackend.GPU,
+                    temperature = 1.0f,
+                    topK = 64,
+                    topP = 0.95f,
+                    modelType = modelType,
+                    downloadUrl = "https://www.kaggle.com/models/google/gemma-2/tfLite/gemma2-2b-it-gpu-int8",
+                    description = "GPU-optimized Gemma2 for iOS"
+                )
+            )
+            add(
+                Model(
                     id = "gemma-1.1-2b-it-gpu-int4.bin",
                     name = "Gemma 1.1 2B IT (GPU)",
                     size = 1070,
@@ -345,7 +367,11 @@ data class Model(
                     name = "Gemma 3n E2B (Multimodal)",
                     size = 2100,
                     modelType = modelType,
-                    isVisionEnabled = true,
+                    features = listOf(
+                        ModelManagerRuntimeFeature.TEXT,
+                        ModelManagerRuntimeFeature.AUDIO,
+                        ModelManagerRuntimeFeature.VISION
+                    ),
                     backend = InferenceBackend.CPU,
                     temperature = 1.0f,
                     topK = 64,
@@ -360,7 +386,11 @@ data class Model(
                     name = "Gemma 3n E4B (Multimodal)",
                     size = 3400,
                     modelType = modelType,
-                    isVisionEnabled = true,
+                    features = listOf(
+                        ModelManagerRuntimeFeature.TEXT,
+                        ModelManagerRuntimeFeature.AUDIO,
+                        ModelManagerRuntimeFeature.VISION
+                    ),
                     backend = InferenceBackend.CPU,
                     temperature = 1.0f,
                     topK = 64,
@@ -375,7 +405,11 @@ data class Model(
                     name = "Gemma 3n E2B Web (Multimodal)",
                     size = 3040,
                     modelType = modelType,
-                    isVisionEnabled = true,
+                    features = listOf(
+                        ModelManagerRuntimeFeature.TEXT,
+                        ModelManagerRuntimeFeature.AUDIO,
+                        ModelManagerRuntimeFeature.VISION
+                    ),
                     backend = InferenceBackend.GPU,
                     temperature = 1.0f,
                     topK = 64,
@@ -390,7 +424,11 @@ data class Model(
                     name = "FastVLM 0.5B (Vision)",
                     size = 500,
                     modelType = modelType,
-                    isVisionEnabled = true,
+                    features = listOf(
+                        ModelManagerRuntimeFeature.TEXT,
+                        ModelManagerRuntimeFeature.AUDIO,
+                        ModelManagerRuntimeFeature.VISION
+                    ),
                     backend = InferenceBackend.CPU,
                     temperature = 1.0f,
                     topK = 64,
@@ -824,7 +862,15 @@ data class Model(
          * Get all multimodal (vision-enabled) models
          */
         fun getMultimodalModels(): List<Model> {
-            return (MEDIA_PIPE_MODELS + LITE_RT_LM_MODELS).filter { it.isVisionEnabled }
+            return (MEDIA_PIPE_MODELS + LITE_RT_LM_MODELS).filter {
+                it.features.containsAll(
+                    listOf(
+                        ModelManagerRuntimeFeature.TEXT,
+                        ModelManagerRuntimeFeature.AUDIO,
+                        ModelManagerRuntimeFeature.VISION
+                    ),
+                )
+            }
         }
 
         /**
@@ -877,7 +923,7 @@ data class Model(
         /**
          * IMPORTANT DOWNLOAD NOTES:
          *
-         * MediaPipe (.task) Models:
+         * MediaPipe (.task (Recommended) and .litertlm) Models:
          * - Download from HuggingFace litert-community
          * - Files are pre-bundled and ready to use
          * - No conversion needed
@@ -945,7 +991,7 @@ data class EmbeddingModel(
 
 }
 
-data class Tokenizer(
+data class TokenizerModel(
     val id: String,
     val name: String,
     val downloadUrl: String,
@@ -953,11 +999,11 @@ data class Tokenizer(
     val localPath: String? = null,
 ) {
 
-    companion object {
+    companion object Companion {
 
         val TOKENIZER_MODELS = buildList {
             add(
-                Tokenizer(
+                TokenizerModel(
                     id = "sentencepiece.model",
                     name = "Gemma SentencePiece",
                     downloadUrl = "https://huggingface.co/google/gemma-2b/resolve/main/tokenizer.model",

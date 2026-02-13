@@ -16,10 +16,10 @@ kotlin {
             baseName = "composeApp"
         }
 
-        pod("MediaPipeTasksGenAI") {
-            version = "0.10.18"
-            extraOpts += listOf("-compiler-option", "-fmodules")
-        }
+//        pod("MediaPipeTasksGenAI") {
+//            version = "0.10.24"
+//            extraOpts += listOf("-compiler-option", "-fmodules")
+//        }
     }
 
     sourceSets {
@@ -43,13 +43,6 @@ kotlin {
             /** Gen AI Libraries **/
         }
         commonMain.dependencies {
-//            api(compose.runtime)
-//            api(compose.foundation)
-//            implementation(compose.material3)
-//            api(compose.ui)
-//            api(compose.components.resources)
-//            api(compose.preview)
-//            api(libs.ui.tooling.preview)
 
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)

@@ -5,6 +5,7 @@ enum class ModelManagerOption(
     val managerName: String,
     val type: ModelManagerRuntime,
     val features: List<ModelManagerRuntimeFeature>,
+    val desciption: String,
 ) {
     MEDIA_PIPE(
         id = "media_pipe",
@@ -15,7 +16,8 @@ enum class ModelManagerOption(
             ModelManagerRuntimeFeature.VISION,
             ModelManagerRuntimeFeature.AUDIO,
             ModelManagerRuntimeFeature.RAG,
-        )
+        ),
+        desciption = "The most stable runtime for On-Device supporting text generation, vision, audio processing along with RAG support."
     ),
     LITE_RT_LM(
         id = "lite_rt_lm",
@@ -26,14 +28,18 @@ enum class ModelManagerOption(
             ModelManagerRuntimeFeature.VISION,
             ModelManagerRuntimeFeature.AUDIO,
             ModelManagerRuntimeFeature.RAG,
-        )
+        ),
+        desciption = "The most stable runtime for On-Device supporting text generation, vision, audio processing along with RAG support."
     ),
     Llama_TIK(
-        id = "llamatik", managerName = "LlamaTik", type = ModelManagerRuntime.LlamaTIK,
+        id = "llamatik",
+        managerName = "LlamaTik",
+        type = ModelManagerRuntime.LlamaTIK,
         features = listOf(
             ModelManagerRuntimeFeature.TEXT,
             ModelManagerRuntimeFeature.RAG,
-        )
+        ),
+        desciption = "The most stable runtime for On-Device supporting text generation, vision, audio processing along with RAG support."
     )
 }
 

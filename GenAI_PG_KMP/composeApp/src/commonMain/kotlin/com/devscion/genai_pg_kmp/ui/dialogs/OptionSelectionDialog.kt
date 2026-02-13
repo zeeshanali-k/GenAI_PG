@@ -43,53 +43,19 @@ import com.devscion.genai_pg_kmp.LocalTransitionScope
 import com.devscion.genai_pg_kmp.ui.components.ModelSelectionItem
 
 @Composable
-fun <T : Any> OptionSelectionDialog(
-    title: String,
-    options: List<T>,
-    selectedOption: T?,
-    getName: (T) -> String,
-    getDescription: (T) -> String,
-    getDownloadUrl: (T) -> String?,
-    getLocalPath: (T) -> String?,
-    onDismiss: () -> Unit,
-    onSelect: (T) -> Unit,
-    onFileSelect: (T) -> Unit,
-    showStatus: Boolean = true,
-    showDownload: Boolean = true,
-    showFileSelect: Boolean = true,
-    maxListHeight: Dp = 400.dp,
-) {
-    OptionSelectionContent(
-        title = title,
-        options = options,
-        selectedOption = selectedOption,
-        getName = getName,
-        getDescription = getDescription,
-        getDownloadUrl = getDownloadUrl,
-        getLocalPath = getLocalPath,
-        onDismiss = onDismiss,
-        onSelect = onSelect,
-        onFileSelect = onFileSelect,
-        showStatus = showStatus,
-        showDownload = showDownload,
-        showFileSelect = showFileSelect,
-        maxListHeight = maxListHeight,
-    )
-}
-
-@Composable
 fun <T : Any> OptionSelectionContent(
     modifier: Modifier = Modifier,
     title: String,
     options: List<T>,
     selectedOption: T?,
-    getName: (T) -> String,
-    getDescription: (T) -> String,
-    getDownloadUrl: (T) -> String?,
-    getLocalPath: (T) -> String?,
+    getTags: T.() -> List<String>,
+    getName: T.() -> String,
+    getDescription: T.() -> String,
+    getDownloadUrl: T.() -> String?,
+    getLocalPath: T.() -> String?,
     onDismiss: () -> Unit,
-    onSelect: (T) -> Unit,
-    onFileSelect: (T) -> Unit,
+    onSelect: T.() -> Unit,
+    onFileSelect: T.() -> Unit,
     showStatus: Boolean = true,
     showDownload: Boolean = true,
     showFileSelect: Boolean = true,
@@ -146,13 +112,14 @@ fun <T : Any> OptionSelectionContent(
                                 val visibilityScope = LocalAnimatedVisibilityScope.current
                                 Column(Modifier.fillMaxWidth()) {
                                     ModelSelectionItem(
-                                        name = getName(item),
+                                        name = item.getName(),
                                         showInfo = showInfo,
-                                        downloadUrl = getDownloadUrl(item),
-                                        localPath = getLocalPath(item),
+                                        tags = item.getTags(),
+                                        downloadUrl = item.getDownloadUrl(),
+                                        localPath = item.getLocalPath(),
                                         isSelected = item == selectedOption,
                                         onSelect = { onSelect(item) },
-                                        onFileSelect = { onFileSelect(item) },
+                                        onFileSelect = { item.onFileSelect() },
                                         onToggleInfo = { showInfo = showInfo.not() },
                                         infoIconModifier = if (transitionScope != null && visibilityScope != null) {
                                             with(transitionScope) {

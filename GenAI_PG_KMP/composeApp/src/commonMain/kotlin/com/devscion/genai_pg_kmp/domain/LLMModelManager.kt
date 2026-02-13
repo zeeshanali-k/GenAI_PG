@@ -19,7 +19,7 @@ interface LLMModelManager {
 
     suspend fun sendPromptToLLM(
         inputPrompt: String,
-        attachments: List<PlatformFile>?
+        attachments: List<PlatformFile>
     ): Flow<ChunkedModelResponse>
 
     // RAG Support
@@ -50,7 +50,7 @@ interface LLMModelManager {
         } else {
             inputPrompt
         }
-        return sendPromptToLLM(augmentedPrompt, images)
+        return sendPromptToLLM(augmentedPrompt, images ?: emptyList())
     }
 
     fun buildPromptWithContext(prompt: String, context: String): String {

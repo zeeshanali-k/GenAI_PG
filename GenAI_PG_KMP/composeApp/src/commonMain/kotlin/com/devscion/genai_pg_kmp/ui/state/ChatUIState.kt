@@ -2,10 +2,10 @@ package com.devscion.genai_pg_kmp.ui.state
 
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.devscion.genai_pg_kmp.domain.model.ChatHistoryItem
+import com.devscion.genai_pg_kmp.domain.model.EmbeddingModel
 import com.devscion.genai_pg_kmp.domain.model.Model
 import com.devscion.genai_pg_kmp.domain.model.ModelManagerOption
-import com.devscion.genai_pg_kmp.domain.model.EmbeddingModel
-import com.devscion.genai_pg_kmp.domain.model.Tokenizer
+import com.devscion.genai_pg_kmp.domain.model.TokenizerModel
 
 sealed class ChatUIState {
     data object Loading : ChatUIState()
@@ -24,8 +24,8 @@ data class ModelManagerState(
     val selectedLLM: Model? = null,
     val embeddingModels: List<EmbeddingModel> = emptyList(),
     val selectedEmbeddingModel: EmbeddingModel? = null,
-    val tokenizerModels: List<Tokenizer> = emptyList(),
-    val selectedTokenizer: Tokenizer? = null,
+    val tokenizerModels: List<TokenizerModel> = emptyList(),
+    val selectedTokenizer: TokenizerModel? = null,
     val showManagerSelection: Boolean = false,
     val showModelSelection: Boolean = false,
     val showEmbeddingSelection: Boolean = false,

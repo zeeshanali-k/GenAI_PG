@@ -35,10 +35,10 @@ class AndroidFilePicker(
             try {
                 val type = context.contentResolver.getType(uri)
                 val isImage = type?.startsWith("image/") == true
+                val isAudio = type?.startsWith("audio/") == true
                 val fileName = getFileName(context, uri) ?: "unknown"
 
-                if (isImage) {
-                    // For images, we get bytes
+                if (isImage || isAudio) {
                     val bytes = context.contentResolver.openInputStream(uri)?.use {
                         it.readBytes()
                     }
@@ -47,13 +47,11 @@ class AndroidFilePicker(
                             name = fileName,
                             content = null,
                             pathOrUri = uri.toString(),
-                            type = MediaType.IMAGE,
+                            type = if (isAudio) MediaType.AUDIO else MediaType.IMAGE,
                             bytes = bytes
                         )
                     )
                 } else if (isModel) {
-                    // For models, we just need the URI/Path, content is not needed in memory usually
-                    // Persist permission for future access
                     try {
                         context.contentResolver.takePersistableUriPermission(
                             uri,

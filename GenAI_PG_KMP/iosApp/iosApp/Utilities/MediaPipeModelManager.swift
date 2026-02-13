@@ -9,16 +9,30 @@ import Foundation
 import composeApp
 import MediaPipeTasksGenAI
 import MediaPipeTasksGenAIC
+import SwiftUI
 
 
 class MediaPipeModelManager: SwiftModelManager {
 
-
     var llmInference: LlmInference?
     var llmInferenceSession: LlmInference.Session?
 
-    func generateResponseAsync(inputText: String, progress: @escaping (String) -> Void, completion: @escaping (String, String?) -> Void) async throws {
-        try llmInference?.generateResponseAsync(inputText: inputText) { partialResponse, error in
+    func generateResponseAsync(inputText: String,
+                               attachments: [PlatformFile],
+                               progress: @escaping (String) -> Void, completion: @escaping (String, String?) -> Void) async throws {
+//        try attachments.forEach({file in 
+//            if(file.bytes != nil){
+//                let data = file.bytes!.toData()
+//                if(file.type == MediaType.image){
+//                    let image = UIImage(data: data)?.cgImage
+//                    if(image != nil){
+//                        try llmInferenceSession!.addImage(image: image!)
+//                    }
+//                }
+//            }
+//        })
+        try llmInferenceSession!.addQueryChunk(inputText: inputText)
+        try llmInferenceSession!.generateResponseAsync(progress: {partialResponse, error in
             // progress
             if let e = error {
                 print(" \(e)")
@@ -28,9 +42,9 @@ class MediaPipeModelManager: SwiftModelManager {
             if let partial = partialResponse {
                 progress(partial)
             }
-        } completion: {
+        }, completion: {
             completion("", nil)
-        }
+        })
     }
 
     func loadModel(model: Model) -> Bool {
@@ -88,7 +102,7 @@ class MediaPipeModelManager: SwiftModelManager {
     }
 
     func stopResponseGeneration() {
-
+//        llmInferenceSession?.stop
     }
 
 
@@ -97,4 +111,14 @@ class MediaPipeModelManager: SwiftModelManager {
     }
 
 
+}
+
+extension KotlinByteArray {
+    func toData() -> Data {
+        var data = Data()
+        for i in 0..<Int(self.size) {
+            data.append(UInt8(bitPattern: self.get(index: Int32(i))))
+        }
+        return data
+    }
 }

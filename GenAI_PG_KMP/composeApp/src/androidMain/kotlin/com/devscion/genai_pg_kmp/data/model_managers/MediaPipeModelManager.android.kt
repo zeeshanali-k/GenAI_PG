@@ -11,6 +11,7 @@ import com.devscion.genai_pg_kmp.domain.PlatformFile
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
 import com.devscion.genai_pg_kmp.domain.model.InferenceBackend
 import com.devscion.genai_pg_kmp.domain.model.Model
+import com.devscion.genai_pg_kmp.domain.model.ModelManagerRuntimeFeature
 import com.devscion.genai_pg_kmp.domain.rag.RAGManager
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.genai.llminference.GraphOptions
@@ -83,13 +84,12 @@ class MediaPipeModelManager(
                             .build()
                     )
                 }
-                if (model.isVisionEnabled) {
-                    setGraphOptions(
-                        GraphOptions.builder()
-                            .setEnableVisionModality(true)
-                            .build()
-                    )
-                }
+                setGraphOptions(
+                    GraphOptions.builder()
+                        .setEnableVisionModality(model.features.contains(ModelManagerRuntimeFeature.VISION))
+                        .setEnableAudioModality(model.features.contains(ModelManagerRuntimeFeature.AUDIO))
+                        .build()
+                )
             }
         inferenceSession = LlmInferenceSession.createFromOptions(
             llmInference!!,
@@ -99,25 +99,19 @@ class MediaPipeModelManager(
 
     override suspend fun sendPromptToLLM(
         inputPrompt: String,
-        attachments: List<PlatformFile>?
+        attachments: List<PlatformFile>
     ): Flow<ChunkedModelResponse> =
         withContext(Dispatchers.IO) {
             callbackFlow {
                 if (inferenceSession == null) {
                     throw IllegalStateException("Engine must be initialized")
                 }
-                attachments?.filter { it.type == MediaType.IMAGE && it.bytes != null }
-                    ?.forEach { file ->
-                        val bitmap = BitmapFactory.decodeByteArray(file.bytes, 0, file.bytes!!.size)
-                        if (bitmap != null) {
-                            try {
-                                inferenceSession!!.addImage(BitmapImageBuilder(bitmap).build())
-                            } catch (e: Exception) {
-                                Log.e(
-                                    "MediaPipeModelManager",
-                                    "Failed to add image chunk: ${e.message}"
-                                )
-                            }
+                attachments.filter { it.bytes != null }
+                    .forEach { file ->
+                        if (file.type == MediaType.IMAGE) {
+                            addImageToSession(file)
+                        } else if (file.type == MediaType.AUDIO) {
+                            addAudioToSession(file)
                         }
                     }
 
@@ -142,6 +136,31 @@ class MediaPipeModelManager(
                 }
             }
         }
+
+    private fun addImageToSession(file: PlatformFile) {
+        val bitmap = BitmapFactory.decodeByteArray(file.bytes, 0, file.bytes!!.size)
+        if (bitmap != null) {
+            try {
+                inferenceSession!!.addImage(BitmapImageBuilder(bitmap).build())
+            } catch (e: Exception) {
+                Log.e(
+                    "MediaPipeModelManager",
+                    "Failed to add image chunk: ${e.message}"
+                )
+            }
+        }
+    }
+
+    private fun addAudioToSession(file: PlatformFile) {
+        try {
+            inferenceSession!!.addAudio(file.bytes!!)
+        } catch (e: Exception) {
+            Log.e(
+                "MediaPipeModelManager",
+                "Failed to add image chunk: ${e.message}"
+            )
+        }
+    }
 
     @OptIn(DelicateCoroutinesApi::class)
     override fun close() {
