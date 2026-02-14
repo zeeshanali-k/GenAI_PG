@@ -3,6 +3,8 @@ package com.devscion.genai_pg_kmp.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -20,24 +22,29 @@ fun SelectionButton(
     isSelected: Boolean,
     onClick: () -> Unit,
 ) {
-    Text(
-        title,
-        textAlign = TextAlign.Start,
-        modifier =
-            modifier
-                .then(
-                    if (isSelected) Modifier.border(
-                        1.dp,
-                        MaterialTheme.colorScheme.tertiaryContainer,
-                        MaterialTheme.shapes.medium
+    Box(
+        modifier
+            .clip(MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.secondaryContainer)
+            .clickable(onClick = onClick)
+            .padding(9.dp)
+    ) {
+        Text(
+            title,
+            textAlign = TextAlign.Start,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .then(
+                        if (isSelected) Modifier.border(
+                            1.dp,
+                            MaterialTheme.colorScheme.tertiaryContainer,
+                            MaterialTheme.shapes.medium
+                        )
+                        else Modifier
                     )
-                    else Modifier
-                )
-                .clip(MaterialTheme.shapes.medium)
-                .background(MaterialTheme.colorScheme.secondaryContainer)
-                .clickable(onClick = onClick)
-                .padding(9.dp)
-    )
+        )
+    }
 }
 
 

@@ -17,6 +17,7 @@ interface SwiftModelManager {
 
     suspend fun generateResponseAsync(
         inputText: String,
+        attachments: List<PlatformFile>,
         progress: (partialResponse: String) -> Unit,
         completion: (completeResponse: String, error: String?) -> Unit
     )

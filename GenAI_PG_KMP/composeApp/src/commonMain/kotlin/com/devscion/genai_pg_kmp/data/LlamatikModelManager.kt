@@ -2,7 +2,7 @@ package com.devscion.genai_pg_kmp.data
 
 import co.touchlab.kermit.Logger
 import com.devscion.genai_pg_kmp.domain.LLMModelManager
-import com.devscion.genai_pg_kmp.domain.LlamatikPathProvider
+import com.devscion.genai_pg_kmp.domain.PlatformFile
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
 import com.devscion.genai_pg_kmp.domain.model.Model
 import com.devscion.genai_pg_kmp.domain.rag.RAGManager
@@ -18,7 +18,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class LlamatikModelManager(
-    private val llamatikPathProvider: LlamatikPathProvider,
     override var ragManager: RAGManager
 ) : LLMModelManager {
     override var systemMessage: String? = null
@@ -26,7 +25,7 @@ class LlamatikModelManager(
     override suspend fun loadModel(model: Model): Boolean {
         return withContext(Dispatchers.IO) {
             try {
-                val path = llamatikPathProvider.getPath(model.id).also {
+                val path = model.localPath.also {
                     Logger.d("LlamatikModelManager") {
                         "Path-> $it"
                     }
@@ -45,20 +44,22 @@ class LlamatikModelManager(
 
     override fun close() {
         LlamaBridge.shutdown()
-        ragManager?.let {
-            // Clear RAG index when closing
-            //TODO: remove GlobalScope
-            GlobalScope.launch(Dispatchers.IO) {
-                it.clearIndex()
-            }
+        //TODO: remove GlobalScope
+        GlobalScope.launch(Dispatchers.IO) {
+            ragManager.clearIndex()
         }
     }
 
-    override fun stopResponseGeneration() {
-        LlamaBridge.nativeCancelGenerate()
+    override suspend fun stopResponseGeneration() {
+        withContext(Dispatchers.IO) {
+            LlamaBridge.nativeCancelGenerate()
+        }
     }
 
-    override suspend fun sendPromptToLLM(inputPrompt: String): Flow<ChunkedModelResponse> =
+    override suspend fun sendPromptToLLM(
+        inputPrompt: String,
+        attachments: List<PlatformFile>
+    ): Flow<ChunkedModelResponse> =
         callbackFlow {
             withContext(Dispatchers.IO) {
                 LlamaBridge.generateStreamWithContext(
@@ -100,11 +101,4 @@ class LlamatikModelManager(
 
             }
         }
-
-    override suspend fun loadEmbeddingModel(
-        embeddingModelPath: String,
-        tokenizerPath: String
-    ): Boolean {
-        return ragManager.loadEmbeddingModel(embeddingModelPath, tokenizerPath)
-    }
 }

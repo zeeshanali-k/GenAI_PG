@@ -2,6 +2,8 @@ package com.devscion.genai_pg_kmp.ui.state
 
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
+import com.devscion.genai_pg_kmp.domain.MediaType
+import com.devscion.genai_pg_kmp.domain.PlatformFile
 
 /**
  * Represents a document attached for RAG.
@@ -12,6 +14,8 @@ data class DocumentState(
     val title: String,
     val content: String,
     val isEmbedded: Boolean = false,
+    val type: MediaType = MediaType.DOCUMENT,
+    val platformFile: PlatformFile? = null,
     val size: Long = content.length.toLong()
 )
 

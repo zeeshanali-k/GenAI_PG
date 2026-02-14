@@ -31,11 +31,13 @@ fun startKoin(platformConfig: KoinApplication.() -> Unit) {
 
 val modelManagerModule = module {
     // RAG manager for Llamatik
-    factoryOf(::LlamatikRAGManager) bind RAGManager::class
-    
+    factoryOf(::LlamatikRAGManager) {
+        qualifier = named(ModelManagerRuntime.LlamaTIK)
+    } bind RAGManager::class
+
     // Llamatik model manager with RAG support
     factory<LLMModelManager>(named(ModelManagerRuntime.LlamaTIK)) {
-        LlamatikModelManager(get(), get())
+        LlamatikModelManager(get(named(ModelManagerRuntime.LlamaTIK)))
     }
 }
 

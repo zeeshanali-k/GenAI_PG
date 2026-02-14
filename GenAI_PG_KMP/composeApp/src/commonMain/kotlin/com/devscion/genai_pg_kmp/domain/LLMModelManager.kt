@@ -15,9 +15,12 @@ interface LLMModelManager {
 
     fun close()
 
-    fun stopResponseGeneration()
+    suspend fun stopResponseGeneration()
 
-    suspend fun sendPromptToLLM(inputPrompt: String): Flow<ChunkedModelResponse>
+    suspend fun sendPromptToLLM(
+        inputPrompt: String,
+        attachments: List<PlatformFile>
+    ): Flow<ChunkedModelResponse>
 
     // RAG Support
     var ragManager: RAGManager
@@ -26,11 +29,17 @@ interface LLMModelManager {
         ragManager.indexDocument(document)
     }
 
-    suspend fun loadEmbeddingModel(embeddingModelPath: String, tokenizerPath: String): Boolean
+    suspend fun loadEmbeddingModel(embeddingModelPath: String, tokenizerPath: String): Boolean {
+        return ragManager.loadEmbeddingModel(
+            embeddingModelPath,
+            tokenizerPath,
+        )
+    }
 
     suspend fun sendPromptWithRAG(
         inputPrompt: String,
-        topK: Int = 3
+        topK: Int = 3,
+        images: List<PlatformFile>? = null
     ): Flow<ChunkedModelResponse> {
         val context = ragManager.retrieveContext(inputPrompt, topK)
         Logger.d("LLMModelManager") {
@@ -41,7 +50,7 @@ interface LLMModelManager {
         } else {
             inputPrompt
         }
-        return sendPromptToLLM(augmentedPrompt)
+        return sendPromptToLLM(augmentedPrompt, images ?: emptyList())
     }
 
     fun buildPromptWithContext(prompt: String, context: String): String {

@@ -1,14 +1,20 @@
 package com.devscion.genai_pg_kmp.data.model_managers
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.util.Log
-import com.devscion.genai_pg_kmp.data.rag.AIEdgeRAGManager
+import com.devscion.genai_pg_kmp.data.rag.MediaPipeRAGManager
 import com.devscion.genai_pg_kmp.domain.LLMModelManager
-import com.devscion.genai_pg_kmp.domain.LlamatikPathProvider
+import com.devscion.genai_pg_kmp.domain.MediaType
+import com.devscion.genai_pg_kmp.domain.ModelPathProvider
+import com.devscion.genai_pg_kmp.domain.PlatformFile
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
 import com.devscion.genai_pg_kmp.domain.model.InferenceBackend
 import com.devscion.genai_pg_kmp.domain.model.Model
+import com.devscion.genai_pg_kmp.domain.model.ModelManagerRuntimeFeature
 import com.devscion.genai_pg_kmp.domain.rag.RAGManager
+import com.google.mediapipe.framework.image.BitmapImageBuilder
+import com.google.mediapipe.tasks.genai.llminference.GraphOptions
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
 import com.google.mediapipe.tasks.genai.llminference.PromptTemplates
@@ -24,27 +30,31 @@ import kotlinx.coroutines.withContext
 
 class MediaPipeModelManager(
     private val context: Context,
-    private val llamatikPathProvider: LlamatikPathProvider,
-    override var ragManager: RAGManager
+    override var ragManager: RAGManager,
+    private val modelPathProvider: ModelPathProvider,
 ) : LLMModelManager {
 
     private val sessionOptions: LlmInferenceSession.LlmInferenceSessionOptions.Builder =
         LlmInferenceSession.LlmInferenceSessionOptions.builder()
     val llmInferenceOptions: LlmInference.LlmInferenceOptions.Builder =
         LlmInference.LlmInferenceOptions.builder()
+            .setMaxNumImages(5)
     override var systemMessage: String? = null
     private var inferenceSession: LlmInferenceSession? = null
     private var llmInference: LlmInference? = null
 
     override suspend fun loadModel(model: Model): Boolean {
-        val modelPath = llamatikPathProvider.getPath(model.id) ?: return false
+        val modelPath = model.localPath ?: return false
         Log.d("MediaPipeModelManager", "modelPath -> $modelPath")
         if (modelPath.isEmpty()) {
             return false
         }
         return withContext(Dispatchers.IO) {
             try {
-                llmInferenceOptions.setModelPath(modelPath)
+                val resolvedModelPath =
+                    modelPathProvider.resolvePath(modelPath) ?: return@withContext false
+                Log.d("MediaPipeModelManager", "resolvedModelPath -> $resolvedModelPath")
+                llmInferenceOptions.setModelPath(resolvedModelPath)
                     .setMaxTopK(model.topK)
                     .setMaxTokens(model.maxTokens)
                     .setPreferredBackend(model.backend.toMediaPipeBackend())
@@ -54,7 +64,8 @@ class MediaPipeModelManager(
                 )
                 createSession(model)
                 true
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                e.printStackTrace()
                 false
             }
         }
@@ -73,6 +84,12 @@ class MediaPipeModelManager(
                             .build()
                     )
                 }
+                setGraphOptions(
+                    GraphOptions.builder()
+                        .setEnableVisionModality(model.features.contains(ModelManagerRuntimeFeature.VISION))
+                        .setEnableAudioModality(model.features.contains(ModelManagerRuntimeFeature.AUDIO))
+                        .build()
+                )
             }
         inferenceSession = LlmInferenceSession.createFromOptions(
             llmInference!!,
@@ -80,12 +97,24 @@ class MediaPipeModelManager(
         )
     }
 
-    override suspend fun sendPromptToLLM(inputPrompt: String): Flow<ChunkedModelResponse> =
+    override suspend fun sendPromptToLLM(
+        inputPrompt: String,
+        attachments: List<PlatformFile>
+    ): Flow<ChunkedModelResponse> =
         withContext(Dispatchers.IO) {
             callbackFlow {
                 if (inferenceSession == null) {
                     throw IllegalStateException("Engine must be initialized")
                 }
+                attachments.filter { it.bytes != null }
+                    .forEach { file ->
+                        if (file.type == MediaType.IMAGE) {
+                            addImageToSession(file)
+                        } else if (file.type == MediaType.AUDIO) {
+                            addAudioToSession(file)
+                        }
+                    }
+
                 inferenceSession!!.addQueryChunk(inputPrompt)
                 inferenceSession!!.generateResponseAsync { subText, isDone ->
                     Log.d("LLMResponse", "ModelManager-> $isDone :: $subText")
@@ -108,21 +137,29 @@ class MediaPipeModelManager(
             }
         }
 
-    override suspend fun loadEmbeddingModel(
-        embeddingModelPath: String,
-        tokenizerPath: String
-    ): Boolean {
-        (ragManager as AIEdgeRAGManager).loadMediaPipeLlmBackend(
-            context,
-            mediaPipeLanguageModelOptions = llmInferenceOptions.build(),
-            mediaPipeLanguageModelSessionOptions = sessionOptions.build(),
-        )
-        return ragManager.loadEmbeddingModel(
-            llamatikPathProvider.getPath(embeddingModelPath)
-                ?: throw NullPointerException("Invalid model path"),
-            llamatikPathProvider.getPath(tokenizerPath)
-                ?: throw NullPointerException("Invalid model path"),
-        )
+    private fun addImageToSession(file: PlatformFile) {
+        val bitmap = BitmapFactory.decodeByteArray(file.bytes, 0, file.bytes!!.size)
+        if (bitmap != null) {
+            try {
+                inferenceSession!!.addImage(BitmapImageBuilder(bitmap).build())
+            } catch (e: Exception) {
+                Log.e(
+                    "MediaPipeModelManager",
+                    "Failed to add image chunk: ${e.message}"
+                )
+            }
+        }
+    }
+
+    private fun addAudioToSession(file: PlatformFile) {
+        try {
+            inferenceSession!!.addAudio(file.bytes!!)
+        } catch (e: Exception) {
+            Log.e(
+                "MediaPipeModelManager",
+                "Failed to add image chunk: ${e.message}"
+            )
+        }
     }
 
     @OptIn(DelicateCoroutinesApi::class)
@@ -132,17 +169,15 @@ class MediaPipeModelManager(
         inferenceSession = null
         llmInference?.close()
         llmInference = null
-
-        // Clean up RAG manager
         GlobalScope.launch {//TODO: remove GlobalScope
-            (ragManager as? AIEdgeRAGManager)?.clearIndex()
+            (ragManager as? MediaPipeRAGManager)?.clearIndex()
         }
-        // Don't nullify ragManager as it might be reused or is injected
-        // ragManager = null
     }
 
-    override fun stopResponseGeneration() {
-        inferenceSession?.cancelGenerateResponseAsync()
+    override suspend fun stopResponseGeneration() {
+        withContext(Dispatchers.IO) {
+            inferenceSession?.cancelGenerateResponseAsync()
+        }
     }
 
 

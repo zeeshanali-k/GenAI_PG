@@ -2,7 +2,7 @@ package com.devscion.genai_pg_kmp.domain
 
 import platform.Foundation.NSBundle
 
-class LlamatikPathProviderIOS() : LlamatikPathProvider {
+class ModelPathProviderIOS() : ModelPathProvider {
 
     override fun getPath(modelName: String): String? {
         return try {
@@ -18,6 +18,10 @@ class LlamatikPathProviderIOS() : LlamatikPathProvider {
             println("LlamatikModelManager-> Error: ${e.message} :: ${e.cause}")
             null
         }
+    }
+
+    override suspend fun resolvePath(path: String): String? {
+        return null
     }
 
 }

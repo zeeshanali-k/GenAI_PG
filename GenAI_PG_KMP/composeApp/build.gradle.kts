@@ -16,10 +16,10 @@ kotlin {
             baseName = "composeApp"
         }
 
-        pod("MediaPipeTasksGenAI") {
-            version = "0.10.18"
-            extraOpts += listOf("-compiler-option", "-fmodules")
-        }
+//        pod("MediaPipeTasksGenAI") {
+//            version = "0.10.24"
+//            extraOpts += listOf("-compiler-option", "-fmodules")
+//        }
     }
 
     sourceSets {
@@ -31,22 +31,18 @@ kotlin {
 
             //  MediaPipe
             implementation(libs.mediapipe.tasks.genai)
+            implementation(libs.localagents.rag)
+            implementation(libs.tasks.vision)
+//            implementation(libs.tasks.text)
+//            implementation(libs.tasks.audio)
             //    LiteRT-LM
             implementation(libs.litertlm.android)
-            //  Google AI Edge RAG SDK (for MediaPipe & LiteRT-LM)
-            implementation(libs.localagents.rag)
+            //  Google AI Edge RAG SDK for MediaPipe
 
 
             /** Gen AI Libraries **/
         }
         commonMain.dependencies {
-//            api(compose.runtime)
-//            api(compose.foundation)
-//            implementation(compose.material3)
-//            api(compose.ui)
-//            api(compose.components.resources)
-//            api(compose.preview)
-//            api(libs.ui.tooling.preview)
 
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
@@ -57,7 +53,7 @@ kotlin {
             //Llamatik
 
             implementation(libs.llamatik)
-            
+
             // Moko Permissions
             implementation("dev.icerock.moko:permissions-compose:0.18.0")
         }

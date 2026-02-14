@@ -2,9 +2,12 @@ package com.devscion.genai_pg_kmp.data
 
 import android.content.Context
 import android.net.Uri
+import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import com.devscion.genai_pg_kmp.domain.FilePicker
-import com.devscion.genai_pg_kmp.domain.PickedFile
+import com.devscion.genai_pg_kmp.domain.MediaType
+import com.devscion.genai_pg_kmp.domain.PlatformFile
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
@@ -14,22 +17,71 @@ class AndroidFilePicker(
 ) : FilePicker {
 
     private var launcher: ActivityResultLauncher<String>? = null
-    private var activeContinuation: CancellableContinuation<PickedFile?>? = null
+    private var fileLauncher: ActivityResultLauncher<Array<String>>? = null
+    private var activeContinuation: CancellableContinuation<PlatformFile?>? = null
 
-    fun bind(launcher: ActivityResultLauncher<String>) {
-        this.launcher = launcher
+    fun register(activity: ComponentActivity) {
+        launcher = activity.registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            onFilePicked(uri)
+        }
+        fileLauncher =
+            activity.registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+                onFilePicked(uri, isModel = true)
+            }
     }
 
-    fun onFilePicked(uri: Uri?) {
+    private fun onFilePicked(uri: Uri?, isModel: Boolean = false) {
         if (uri != null) {
             try {
-                val content = context.contentResolver.openInputStream(uri)?.use {
-                    it.bufferedReader().readText()
-                } ?: ""
+                val type = context.contentResolver.getType(uri)
+                val isImage = type?.startsWith("image/") == true
+                val isAudio = type?.startsWith("audio/") == true
+                val fileName = getFileName(context, uri) ?: "unknown"
 
-                val name = getFileName(context, uri) ?: "document.txt"
-
-                activeContinuation?.resume(PickedFile(name, content))
+                if (isImage || isAudio) {
+                    val bytes = context.contentResolver.openInputStream(uri)?.use {
+                        it.readBytes()
+                    }
+                    activeContinuation?.resume(
+                        PlatformFile(
+                            name = fileName,
+                            content = null,
+                            pathOrUri = uri.toString(),
+                            type = if (isAudio) MediaType.AUDIO else MediaType.IMAGE,
+                            bytes = bytes
+                        )
+                    )
+                } else if (isModel) {
+                    try {
+                        context.contentResolver.takePersistableUriPermission(
+                            uri,
+                            android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        )
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                    activeContinuation?.resume(
+                        PlatformFile(
+                            name = fileName,
+                            content = null, // Models are binary/large, don't load into string
+                            pathOrUri = uri.toString(),
+                            type = MediaType.MODEL
+                        )
+                    )
+                } else {
+                    // For documents, we get text content
+                    val content = context.contentResolver.openInputStream(uri)?.use {
+                        it.bufferedReader().readText()
+                    } ?: ""
+                    activeContinuation?.resume(
+                        PlatformFile(
+                            name = fileName,
+                            content = content,
+                            pathOrUri = uri.toString(),
+                            type = MediaType.DOCUMENT
+                        )
+                    )
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
                 activeContinuation?.resume(null)
@@ -40,11 +92,23 @@ class AndroidFilePicker(
         activeContinuation = null
     }
 
-    override suspend fun pickDocument(): PickedFile? {
+    override suspend fun pickMedia(): PlatformFile? {
         return suspendCancellableCoroutine { continuation ->
             activeContinuation = continuation
             launcher?.launch("*/*") ?: run {
-                continuation.cancel(IllegalStateException("Launcher not bound"))
+                continuation.cancel(IllegalStateException("Launcher not registered. Call register(activity) first."))
+                activeContinuation = null
+            }
+        }
+    }
+
+    override suspend fun pickFile(extensions: List<String>): PlatformFile? {
+        return suspendCancellableCoroutine { continuation ->
+            activeContinuation = continuation
+            val mimeTypes = "application/octet-stream"
+
+            fileLauncher?.launch(arrayOf(mimeTypes)) ?: run {
+                continuation.cancel(IllegalStateException("Launcher not registered. Call register(activity) first."))
                 activeContinuation = null
             }
         }
@@ -67,7 +131,7 @@ class AndroidFilePicker(
             result = uri.path
             val cut = result?.lastIndexOf('/')
             if (cut != null && cut != -1) {
-                result = result?.substring(cut + 1)
+                result = result.substring(cut + 1)
             }
         }
         return result
