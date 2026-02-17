@@ -29,6 +29,10 @@ interface LLMModelManager {
         ragManager.indexDocument(document)
     }
 
+    suspend fun clearIndexedDocuments() {
+        ragManager.clearIndex()
+    }
+
     suspend fun loadEmbeddingModel(embeddingModelPath: String, tokenizerPath: String): Boolean {
         return ragManager.loadEmbeddingModel(
             embeddingModelPath,

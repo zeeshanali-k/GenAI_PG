@@ -638,6 +638,7 @@ class ChatViewModel(
         viewModelScope.launch {
             val newChatId = chatRepository.createChat("New Chat ${Uuid.random()}")
             setChatId(newChatId)
+            modelManager?.clearIndexedDocuments()
         }
     }
 
