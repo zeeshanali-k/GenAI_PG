@@ -69,7 +69,7 @@ class MediaPipeRAGManager(
     override suspend fun indexDocument(document: RAGDocument) {
         withContext(Dispatchers.IO) {
             try {
-                logger.d { "Indexing document: ${document.id}" }
+                logger.d { "Indexing document: ${document.id} :: ${document.content}" }
 
                 // Split document into chunks
                 val chunks = splitter.split(document.content)

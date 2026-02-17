@@ -29,7 +29,7 @@ enum class ModelManagerOption(
             ModelManagerRuntimeFeature.AUDIO,
             ModelManagerRuntimeFeature.RAG,
         ),
-        desciption = "The most stable runtime for On-Device supporting text generation, vision, audio processing along with RAG support."
+        desciption = "LiteRT-LM supports text generation, vision, audio processing along with RAG support."
     ),
     Llama_TIK(
         id = "llamatik",
@@ -39,7 +39,7 @@ enum class ModelManagerOption(
             ModelManagerRuntimeFeature.TEXT,
             ModelManagerRuntimeFeature.RAG,
         ),
-        desciption = "The most stable runtime for On-Device supporting text generation, vision, audio processing along with RAG support."
+        desciption = "Llamatik supports text generation along with RAG. No media support."
     )
 }
 

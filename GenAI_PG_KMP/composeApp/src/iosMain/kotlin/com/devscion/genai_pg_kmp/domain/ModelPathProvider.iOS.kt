@@ -21,7 +21,11 @@ class ModelPathProviderIOS() : ModelPathProvider {
     }
 
     override suspend fun resolvePath(path: String): String? {
-        return null
+        TODO("Implement")
+    }
+
+    override suspend fun makeLocalCopy(path: FilePath): FilePath? {
+        TODO("Implement")
     }
 
 }

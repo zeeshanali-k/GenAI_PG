@@ -1,8 +1,6 @@
 <component name="ArtifactManager">
   <artifact type="jar" name="composeApp">
     <output-path>$PROJECT_DIR$/GenAI_PG_KMP/composeApp/build/libs</output-path>
-    <root id="archive" name="composeApp.jar">
-      <element id="module-output" name="GenAI_PG.GenAI_PG_KMP.composeApp.androidMain" />
-    </root>
+    <root id="archive" name="composeApp.jar" />
   </artifact>
 </component>

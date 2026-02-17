@@ -2,16 +2,18 @@
 
 package com.devscion.genai_pg_kmp.ui
 
-
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,15 +25,27 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.rounded.ArrowDropDown
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -44,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
@@ -55,31 +70,36 @@ import com.devscion.genai_pg_kmp.domain.MediaType
 import com.devscion.genai_pg_kmp.domain.model.EmbeddingModel
 import com.devscion.genai_pg_kmp.domain.model.Model
 import com.devscion.genai_pg_kmp.domain.model.ModelManagerOption
+import com.devscion.genai_pg_kmp.domain.model.ModelManagerRuntime
 import com.devscion.genai_pg_kmp.domain.model.TokenizerModel
 import com.devscion.genai_pg_kmp.ui.components.AttachedDocumentChip
 import com.devscion.genai_pg_kmp.ui.components.ChatBubble
+import com.devscion.genai_pg_kmp.ui.components.ChatDrawerContent
 import com.devscion.genai_pg_kmp.ui.components.ChatInput
 import com.devscion.genai_pg_kmp.ui.components.SelectionButton
 import com.devscion.genai_pg_kmp.ui.dialogs.ErrorMessageDialog
 import com.devscion.genai_pg_kmp.ui.dialogs.OptionSelectionContent
 import com.devscion.genai_pg_kmp.ui.state.ChatHistory
 import com.devscion.genai_pg_kmp.ui.state.ChatUIState
-import com.devscion.genai_pg_kmp.ui.state.DocumentsState
 import com.devscion.genai_pg_kmp.ui.state.ModelManagerError
 import com.devscion.genai_pg_kmp.ui.state.ModelManagerState
+import com.devscion.genai_pg_kmp.ui.state.RAGDocumentsState
+import com.devscion.genai_pg_kmp.utils.plainClickable
 import com.devscion.genai_pg_kmp.utils.toComposeImageBitmap
 import dev.icerock.moko.permissions.compose.BindEffect
 import dev.icerock.moko.permissions.compose.rememberPermissionsControllerFactory
+import genai_pg.genai_pg_kmp.composeapp.generated.resources.Res
+import genai_pg.genai_pg_kmp.composeapp.generated.resources.app_name
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatScreen(
-    modifier: Modifier = Modifier,
-    viewModel: ChatViewModel = koinViewModel(),
-) {
+fun ChatScreen() {
+    val viewModel = koinViewModel<ChatViewModel>()
 
     val factory = rememberPermissionsControllerFactory()
     val controller = remember(factory) { factory.createPermissionsController() }
@@ -91,54 +111,96 @@ fun ChatScreen(
     BindEffect(controller)
 
     val uiState = viewModel.uiState.collectAsStateWithLifecycle().value
-    val focusManager = LocalFocusManager.current
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
 
-    Scaffold(
-        modifier.fillMaxSize()
-            .navigationBarsPadding(),
-    ) { paddingValues ->
-
-        (uiState as? ChatUIState.Success)?.let {
-            ChatHistoryContent(
-                Modifier
-                    .fillMaxSize()
-                    .padding(
-                        top = paddingValues.calculateTopPadding(),
-                        bottom = paddingValues.calculateBottomPadding()
-                    ),
-                inputFieldState = viewModel.inputFieldState,
-                onSendClick = {
-                    if (viewModel.inputFieldState.text.isNotEmpty()) {
-                        focusManager.clearFocus(force = true)
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet {
+                ChatDrawerContent(
+                    chats = (uiState as? ChatUIState.Success)?.chatHistory?.chats ?: emptyList(),
+                    currentChatId = (uiState as? ChatUIState.Success)?.chatHistory?.currentChatId,
+                    onChatSelected = { chatId ->
+                        viewModel.setChatId(chatId)
+                        scope.launch { drawerState.close() }
+                    },
+                    onNewChatClick = {
+                        viewModel.createNewChat()
+                        scope.launch { drawerState.close() }
+                    },
+                    onDeleteChatClick = { chatId ->
+                        viewModel.deleteChat(chatId)
                     }
-                    viewModel.onSend()
-                },
-                onAttachMediaClick = viewModel::onAttachMedia,
-                toggleManagerSelection = viewModel::toggleManagerSelection,
-                onToggleModelSelection = viewModel::toggleModelSelection,
-                onToggleEmbeddingSelection = viewModel::toggleEmbeddingSelection,
-                onToggleTokenizerSelection = viewModel::toggleTokenizerSelection,
-                onStopClick = viewModel::stopGeneratingResponse,
-                onToggleRuntimeSelection = viewModel::toggleManagerSelection,
-                onRuntimeSelected = viewModel::onRuntimeSelected,
-                onModelSelected = viewModel::onModelSelected,
-                onEmbeddingSelected = viewModel::onEmbeddingModelSelected,
-                onTokenizerSelected = viewModel::onTokenizerSelected,
-                onFilePickForEmbedding = viewModel::onFilePickForEmbedding,
-                onFilePickForTokenizer = viewModel::onFilePickForTokenizer,
-                modelManagerState = it.modelManagerState,
-                chatHistory = it.chatHistory,
-                documentsState = it.documentsState,
-                onRemoveDocument = viewModel::removeDocument,
-                onFilePickForModel = viewModel::onFilePickForModel,
+                )
+            }
+        }
+    ) {
+        val focusManager = LocalFocusManager.current
+
+        Scaffold(
+            topBar = {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(stringResource(Res.string.app_name))
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Icon(Icons.Default.Menu, contentDescription = "Menu")
+                        }
+                    }
+                )
+            },
+            modifier = Modifier
+                .plainClickable {
+                    focusManager.clearFocus()
+                }
+                .fillMaxSize()
+                .navigationBarsPadding(),
+        ) { paddingValues ->
+
+            (uiState as? ChatUIState.Success)?.let {
+                ChatHistoryContent(
+                    Modifier
+                        .fillMaxSize()
+                        .padding(
+                            top = paddingValues.calculateTopPadding(),
+                            bottom = paddingValues.calculateBottomPadding()
+                        ),
+                    inputFieldState = viewModel.inputFieldState,
+                    onSendClick = {
+                        if (viewModel.inputFieldState.text.isNotEmpty()) {
+                            focusManager.clearFocus(force = true)
+                        }
+                        viewModel.onSend()
+                    },
+                    onAttachMediaClick = viewModel::onAttachMedia,
+                    toggleManagerSelection = viewModel::toggleManagerSelection,
+                    onToggleModelSelection = viewModel::toggleModelSelection,
+                    onToggleEmbeddingSelection = viewModel::toggleEmbeddingSelection,
+                    onToggleTokenizerSelection = viewModel::toggleTokenizerSelection,
+                    onStopClick = viewModel::stopGeneratingResponse,
+                    onToggleRuntimeSelection = viewModel::toggleManagerSelection,
+                    onRuntimeSelected = viewModel::onRuntimeSelected,
+                    onModelSelected = viewModel::onModelSelected,
+                    onEmbeddingSelected = viewModel::onEmbeddingModelSelected,
+                    onTokenizerSelected = viewModel::onTokenizerSelected,
+                    onFilePickForEmbedding = viewModel::onPickEmbeddingModel,
+                    onFilePickForTokenizer = viewModel::onPickTokenizerModel,
+                    modelManagerState = it.modelManagerState,
+                    chatHistory = it.chatHistory,
+                    documentsState = it.documentsState,
+                    onRemoveDocument = viewModel::removeDocument,
+                    onFilePickForModel = viewModel::onFilePickForModel,
+                )
+            }
+
+
+            (uiState as? ChatUIState.Success)?.ChatScreenDialogs(
+                onResetError = viewModel::resetError,
+                onResetRagError = viewModel::resetRagError
             )
         }
-
-
-        (uiState as? ChatUIState.Success)?.ChatScreenDialogs(
-            onResetError = viewModel::resetError,
-            onResetRagError = viewModel::resetRagError
-        )
     }
 }
 
@@ -164,10 +226,14 @@ fun ChatHistoryContent(
     onFilePickForEmbedding: (EmbeddingModel) -> Unit,
     onFilePickForTokenizer: (TokenizerModel) -> Unit,
     onFilePickForModel: (Model) -> Unit,
-    documentsState: DocumentsState,
+    documentsState: RAGDocumentsState,
     onRemoveDocument: (String) -> Unit,
 ) {
     val isRAGEnabled = documentsState.documents.any { it.type == MediaType.DOCUMENT }
+
+    var showEmbeddingModelOptions by rememberSaveable {
+        mutableStateOf(false)
+    }
     SharedTransitionLayout(modifier) {
         CompositionLocalProvider(LocalTransitionScope provides this) {
             Box(Modifier.fillMaxSize()) {
@@ -180,6 +246,7 @@ fun ChatHistoryContent(
                         modifier = Modifier
                             .animateContentSize(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         // Runtime Selection Button
                         AnimatedContent(
@@ -241,72 +308,108 @@ fun ChatHistoryContent(
                         } else {
                             Spacer(Modifier.weight(1f))
                         }
+                        AnimatedContent(
+                            modelManagerState.selectedManager != null &&
+                                    modelManagerState.selectedLLM != null
+                                    && modelManagerState.selectedManager.type != ModelManagerRuntime.LlamaTIK
+                        ) {
+                            if (it) {
+                                Icon(
+                                    Icons.Rounded.ArrowDropDown,
+                                    "",
+                                    modifier = Modifier.size(24.dp)
+                                        .background(
+                                            MaterialTheme.colorScheme.secondaryContainer,
+                                            shape = CircleShape
+                                        )
+                                        .rotate(if (showEmbeddingModelOptions) 180f else 0f)
+                                        .plainClickable {
+                                            showEmbeddingModelOptions =
+                                                showEmbeddingModelOptions.not()
+                                        }
+                                )
+                            }
+                        }
                     }
 
-                    if (modelManagerState.selectedLLM != null && isRAGEnabled) {
-                        Row(
-                            modifier = Modifier
-                                .animateContentSize(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            // Embedding Selection Button
-                            AnimatedContent(
-                                modifier = Modifier.weight(1f),
-                                targetState = modelManagerState.showEmbeddingSelection,
-                                transitionSpec = { EnterTransition.None togetherWith ExitTransition.None }
-                            ) { showEmbeddingSelection ->
-                                CompositionLocalProvider(LocalAnimatedVisibilityScope provides this) {
-                                    SelectionButton(
-                                        modifier = with(LocalTransitionScope.current!!) {
-                                            Modifier.fillMaxWidth()
-                                                .then(
-                                                    if (showEmbeddingSelection.not())
-                                                        Modifier.sharedBounds(
-                                                            rememberSharedContentState("optionSelectionContent3"),
-                                                            LocalAnimatedVisibilityScope.current!!,
-                                                            resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(),
-                                                        )
-                                                    else Modifier
-                                                )
-                                        },
-                                        title = modelManagerState.selectedEmbeddingModel?.name
-                                            ?: "Select Embedding",
-                                        isSelected = false,
-                                        onClick = onToggleEmbeddingSelection,
-                                    )
+                    AnimatedContent(
+                        modelManagerState.selectedLLM != null
+                                && (isRAGEnabled || showEmbeddingModelOptions)
+                                && modelManagerState.selectedManager?.type != ModelManagerRuntime.LlamaTIK,
+                        transitionSpec = {
+                            slideInVertically { -it }.togetherWith(slideOutVertically { it })
+                        }
+                    ) {
+                        if (it) {
+                            Row(
+                                modifier = Modifier
+                                    .animateContentSize(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                // Embedding Selection Button
+                                AnimatedContent(
+                                    modifier = Modifier.weight(1f),
+                                    targetState = modelManagerState.showEmbeddingSelection,
+                                    transitionSpec = { EnterTransition.None togetherWith ExitTransition.None }
+                                ) { showEmbeddingSelection ->
+                                    CompositionLocalProvider(LocalAnimatedVisibilityScope provides this) {
+                                        SelectionButton(
+                                            modifier = with(LocalTransitionScope.current!!) {
+                                                Modifier.fillMaxWidth()
+                                                    .then(
+                                                        if (showEmbeddingSelection.not())
+                                                            Modifier.sharedBounds(
+                                                                rememberSharedContentState("optionSelectionContent3"),
+                                                                LocalAnimatedVisibilityScope.current!!,
+                                                                resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(),
+                                                            )
+                                                        else Modifier
+                                                    )
+                                            },
+                                            title = modelManagerState.selectedEmbeddingModel?.name
+                                                ?: "Select Embedding",
+                                            isSelected = false,
+                                            onClick = onToggleEmbeddingSelection,
+                                        )
+                                    }
                                 }
-                            }
 
-                            // Tokenizer Selection Button
-                            AnimatedContent(
-                                modifier = Modifier.weight(1f),
-                                targetState = modelManagerState.showTokenizerSelection,
-                                transitionSpec = { EnterTransition.None togetherWith ExitTransition.None }
-                            ) { showTokenizerSelection ->
-                                CompositionLocalProvider(LocalAnimatedVisibilityScope provides this) {
-                                    SelectionButton(
-                                        modifier = with(LocalTransitionScope.current!!) {
-                                            Modifier.fillMaxWidth()
-                                                .then(
-                                                    if (showTokenizerSelection.not())
-                                                        Modifier.sharedBounds(
-                                                            rememberSharedContentState("optionSelectionContent4"),
-                                                            LocalAnimatedVisibilityScope.current!!,
-                                                            resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(),
-                                                        )
-                                                    else Modifier
-                                                )
-                                        },
-                                        title = modelManagerState.selectedTokenizer?.name
-                                            ?: "Select Tokenizer",
-                                        isSelected = false,
-                                        onClick = onToggleTokenizerSelection,
-                                    )
+                                // Tokenizer Selection Button
+                                AnimatedContent(
+                                    modifier = Modifier.weight(1f),
+                                    targetState = modelManagerState.showTokenizerSelection,
+                                    transitionSpec = { EnterTransition.None togetherWith ExitTransition.None }
+                                ) { showTokenizerSelection ->
+                                    CompositionLocalProvider(LocalAnimatedVisibilityScope provides this) {
+                                        SelectionButton(
+                                            modifier = with(LocalTransitionScope.current!!) {
+                                                Modifier.fillMaxWidth()
+                                                    .then(
+                                                        if (showTokenizerSelection.not())
+                                                            Modifier.sharedBounds(
+                                                                rememberSharedContentState("optionSelectionContent4"),
+                                                                LocalAnimatedVisibilityScope.current!!,
+                                                                resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(),
+                                                            )
+                                                        else Modifier
+                                                    )
+                                            },
+                                            title = modelManagerState.selectedTokenizer?.name
+                                                ?: "Select Tokenizer",
+                                            isSelected = false,
+                                            onClick = onToggleTokenizerSelection,
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
 
+                    val listState = rememberLazyListState()
+                    LaunchedEffect(chatHistory.chatMessages) {
+                        listState.scrollBy(Float.MAX_VALUE)
+                    }
                     LazyColumn(
                         Modifier.fillMaxWidth()
                             .weight(1f)
@@ -314,14 +417,14 @@ fun ChatHistoryContent(
                                 MaterialTheme.colorScheme.surfaceContainer,
                                 MaterialTheme.shapes.medium
                             ),
-                        state = rememberLazyListState(),
+                        state = listState,
                         verticalArrangement = Arrangement.spacedBy(20.dp),
                         contentPadding = PaddingValues(
                             vertical = 12.dp
                         )
                     ) {
                         itemsIndexed(
-                            chatHistory.history,
+                            chatHistory.chatMessages,
                             key = { _, i -> i.id }) { index, item ->
                             Column(
                                 modifier = Modifier.fillMaxWidth(),
@@ -340,7 +443,6 @@ fun ChatHistoryContent(
                                         else Alignment.End,
                                         verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        // Render Attachments
                                         item.attachments.forEach { doc ->
                                             if (doc.type == MediaType.IMAGE && doc.platformFile?.bytes != null) {
                                                 val bitmap =
@@ -355,12 +457,8 @@ fun ChatHistoryContent(
                                                     contentScale = ContentScale.Crop
                                                 )
                                             } else {
-                                                // Read-only chip for documents
-                                                // We can reuse AttachedDocumentChip for now, 
-                                                // maybe hide close button in future refactor
                                                 AttachedDocumentChip(
                                                     document = doc,
-                                                    // onRemove = null (default) for read-only
                                                     modifier = Modifier.fillMaxWidth()
                                                 )
                                             }
