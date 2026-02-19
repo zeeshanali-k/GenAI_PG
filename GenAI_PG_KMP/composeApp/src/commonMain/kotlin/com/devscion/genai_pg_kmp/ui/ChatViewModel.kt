@@ -467,7 +467,7 @@ class ChatViewModel(
     fun onFilePickForModel(model: Model) {
         viewModelScope.launch {
             val file =
-                filePicker.pickFile(modelManagerState.value.selectedLLM!!.supportedFormats.map { it.format })
+                filePicker.pickFile(modelManagerState.value.selectedManager!!.supportedFormats.map { it.format })
             if (file != null) {
                 modelManagerState.update { state ->
                     val updatedModel = model.copy(localPath = file.pathOrUri)

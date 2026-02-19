@@ -512,6 +512,7 @@ fun ChatHistoryContent(
                                         selectedOption = modelManagerState.selectedManager,
                                         getName = { managerName },
                                         getTags = { features.map { it.title } },
+                                        getFormats = { supportedFormats.map { it.format } },
                                         getDescription = { desciption },
                                         getDownloadUrl = { null },
                                         getLocalPath = { null },
