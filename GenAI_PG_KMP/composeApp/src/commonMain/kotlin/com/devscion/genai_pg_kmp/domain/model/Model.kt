@@ -24,19 +24,7 @@ data class Model(
 //    val tokenizerModel: String = "sentencepiece.model",
     val downloadUrl: String,
     val description: String,
-    val localPath: String? = null,
-    val supportedFormats: List<ModelSupportedFormat> = buildList {
-        if (modelType == ModelManagerRuntime.MEDIA_PIPE) {
-            add(ModelSupportedFormat.LITERT)
-            add(ModelSupportedFormat.TASK)
-        }
-        if (modelType == ModelManagerRuntime.LlamaTIK) {
-            add(ModelSupportedFormat.BIN)
-        }
-        if (modelType == ModelManagerRuntime.LITE_RT_LM) {
-            add(ModelSupportedFormat.LITERT)
-        }
-    }
+    val localPath: String? = null
 ) {
     companion object {
         fun models(type: ModelManagerRuntime, platform: Platform): List<Model> {

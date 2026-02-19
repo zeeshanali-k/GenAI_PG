@@ -5,6 +5,7 @@ import android.os.ParcelFileDescriptor
 import android.provider.OpenableColumns
 import android.util.Log
 import androidx.core.net.toUri
+import co.touchlab.kermit.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -16,7 +17,9 @@ class ModelPathProviderAndroid(
 ) : ModelPathProvider {
 
     private var modelPfd: ParcelFileDescriptor? = null
+    private val logger = Logger.withTag("ModelPathProvider")
 
+    @Deprecated("It was used when models were assumed to be in app storage")
     override fun getPath(modelName: String): String? {
         return try {
             val modelFile = context.getExternalFilesDir("llm") ?: return ""
@@ -40,16 +43,68 @@ class ModelPathProviderAndroid(
             if (canOpenProcFd(procPath)) {
                 procPath
             } else {
-                val displayName = queryDisplayName(uri) ?: "model"
                 modelPfd?.close()
                 modelPfd = null
-                copyUriToAppStorage(uri, displayName)
+                makeLocalCopy(uri.toString())
             }
         } catch (e: Exception) {
             Log.e("MediaPipeModelManager", "Failed to open model Uri: ${e.message}")
             null
         }
     }
+
+    override suspend fun makeLocalCopy(path: FilePath): FilePath? {
+        return try {
+            return withContext(Dispatchers.IO) {
+                val uri = path.toUri()
+                val fileName = queryDisplayName(uri) ?: "File_${System.currentTimeMillis()}.${
+                    path.split(".").lastOrNull() ?: return@withContext null
+                }"
+                val targetDir = context.getExternalFilesDir("internal")
+                    ?: File(context.filesDir, "internal")
+                if (!targetDir.exists() && !targetDir.mkdirs()) return@withContext null
+                val targetFile = File(targetDir, fileName)
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    FileOutputStream(targetFile).use { output ->
+                        input.copyTo(output)
+                    }
+                } ?: return@withContext null
+                return@withContext targetFile.absolutePath
+            }
+        } catch (e: Exception) {
+            Log.d("MediaPipeModelManager", "Failed to copy model: ${e.message}")
+            null
+        }
+    }
+
+    override suspend fun getContentByteArray(path: FilePath): ByteArray? =
+        withContext(Dispatchers.IO) {
+            try {
+                context.contentResolver.openInputStream(path.toUri())?.use {
+                    it.readBytes()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
+        }
+
+    override suspend fun getContentText(path: FilePath): String? =
+        withContext(Dispatchers.IO) {
+            try {
+                val file = File(path)
+                FileInputStream(file).use {
+                    it.bufferedReader().readText()
+                }
+//                context.contentResolver.openInputStream(path.toUri())?.use {
+//                    it.bufferedReader().readText()
+//                }
+            } catch (e: Exception) {
+                logger.d { "getContextText: ${e.message} :: ${e.cause} :: ${e.localizedMessage}" }
+                e.printStackTrace()
+                null
+            }
+        }
 
 
     private fun canOpenProcFd(procPath: String): Boolean {
@@ -70,23 +125,5 @@ class ModelPathProviderAndroid(
             }
         }
         return null
-    }
-
-    private fun copyUriToAppStorage(uri: android.net.Uri, fileName: String): String? {
-        return try {
-            val targetDir =
-                context.getExternalFilesDir("models") ?: File(context.filesDir, "models")
-            if (!targetDir.exists() && !targetDir.mkdirs()) return null
-            val targetFile = File(targetDir, fileName)
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                FileOutputStream(targetFile).use { output ->
-                    input.copyTo(output)
-                }
-            } ?: return null
-            targetFile.absolutePath
-        } catch (e: Exception) {
-            Log.e("MediaPipeModelManager", "Failed to copy model: ${e.message}")
-            null
-        }
     }
 }

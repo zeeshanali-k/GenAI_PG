@@ -1,10 +1,32 @@
 package com.devscion.genai_pg_kmp.domain.model
 
+import com.devscion.genai_pg_kmp.getPlatform
+
 enum class ModelManagerOption(
     val id: String,
     val managerName: String,
     val type: ModelManagerRuntime,
     val features: List<ModelManagerRuntimeFeature>,
+    val supportedFormats: List<ModelSupportedFormat> = buildList {
+        when (type) {
+            ModelManagerRuntime.LITE_RT_LM -> {
+                add(ModelSupportedFormat.LITERT)
+            }
+
+            ModelManagerRuntime.MEDIA_PIPE -> {
+                if (getPlatform() == Platform.IOS) {
+                    add(ModelSupportedFormat.BIN)
+                } else {
+                    add(ModelSupportedFormat.LITERT)
+                    add(ModelSupportedFormat.TASK)
+                }
+            }
+
+            ModelManagerRuntime.LlamaTIK -> {
+                add(ModelSupportedFormat.GGUF)
+            }
+        }
+    },
     val desciption: String,
 ) {
     MEDIA_PIPE(
@@ -29,7 +51,7 @@ enum class ModelManagerOption(
             ModelManagerRuntimeFeature.AUDIO,
             ModelManagerRuntimeFeature.RAG,
         ),
-        desciption = "The most stable runtime for On-Device supporting text generation, vision, audio processing along with RAG support."
+        desciption = "LiteRT-LM supports text generation, vision, audio processing along with RAG support."
     ),
     Llama_TIK(
         id = "llamatik",
@@ -39,7 +61,7 @@ enum class ModelManagerOption(
             ModelManagerRuntimeFeature.TEXT,
             ModelManagerRuntimeFeature.RAG,
         ),
-        desciption = "The most stable runtime for On-Device supporting text generation, vision, audio processing along with RAG support."
+        desciption = "Llamatik supports text generation along with RAG. No media support."
     )
 }
 

@@ -6,6 +6,5 @@ data class ChatHistoryItem(
     val id: String,
     val message: String,
     val isLLMResponse: Boolean,
-    val isLoading: Boolean,
     val attachments: List<DocumentState> = emptyList()
 )

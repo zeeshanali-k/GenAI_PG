@@ -2,6 +2,7 @@ package com.devscion.genai_pg_kmp.di
 
 import com.devscion.genai_pg_kmp.data.AndroidFilePicker
 import com.devscion.genai_pg_kmp.data.AndroidModelSettings
+import com.devscion.genai_pg_kmp.data.database.DatabaseBuilder
 import com.devscion.genai_pg_kmp.data.model_managers.LiteRTLM_ModelManager
 import com.devscion.genai_pg_kmp.data.model_managers.MediaPipeModelManager
 import com.devscion.genai_pg_kmp.data.rag.MediaPipeRAGManager
@@ -15,13 +16,16 @@ import com.devscion.genai_pg_kmp.domain.PlatformDetailProviderAndroid
 import com.devscion.genai_pg_kmp.domain.model.ModelManagerRuntime
 import com.devscion.genai_pg_kmp.domain.rag.RAGManager
 import org.koin.android.ext.koin.androidContext
+import org.koin.core.module.Module
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.bind
 import org.koin.dsl.module
 
-actual val platformKoinModule = module {
+actual val platformKoinModule: Module = module {
+
+    singleOf(::DatabaseBuilder)
 
     // RAG manager for Android (MediaPipe and LiteRT-LM)
     factoryOf(::MediaPipeRAGManager) {

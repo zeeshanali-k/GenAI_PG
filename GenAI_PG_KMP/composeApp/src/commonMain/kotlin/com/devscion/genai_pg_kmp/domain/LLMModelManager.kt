@@ -29,6 +29,10 @@ interface LLMModelManager {
         ragManager.indexDocument(document)
     }
 
+    suspend fun clearIndexedDocuments() {
+        ragManager.clearIndex()
+    }
+
     suspend fun loadEmbeddingModel(embeddingModelPath: String, tokenizerPath: String): Boolean {
         return ragManager.loadEmbeddingModel(
             embeddingModelPath,
@@ -41,6 +45,9 @@ interface LLMModelManager {
         topK: Int = 3,
         images: List<PlatformFile>? = null
     ): Flow<ChunkedModelResponse> {
+        Logger.d("LLMModelManager") {
+            "sendPromptWithRAG: $inputPrompt"
+        }
         val context = ragManager.retrieveContext(inputPrompt, topK)
         Logger.d("LLMModelManager") {
             "RAG Context: $context"
@@ -55,10 +62,10 @@ interface LLMModelManager {
 
     fun buildPromptWithContext(prompt: String, context: String): String {
         return """
-            Context Information:
+            User Provided Document Context:
             $context
             Question: $prompt
-            Answer the question based on the provided context. If the context doesn't contain relevant information, say so.
+            Answer the question based on the user provided document's context. If the context doesn't contain relevant information, say so.
         """.trimMargin()
     }
 

@@ -1,5 +1,7 @@
 package com.devscion.genai_pg_kmp.domain
 
+import androidx.compose.runtime.Stable
+
 interface FilePicker {
     suspend fun pickMedia(): PlatformFile?
     suspend fun pickFile(extensions: List<String>): PlatformFile?
@@ -9,6 +11,7 @@ enum class MediaType {
     IMAGE, DOCUMENT, AUDIO, MODEL
 }
 
+@Stable
 data class PlatformFile(
     val name: String,
     val content: String?,

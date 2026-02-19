@@ -10,6 +10,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -41,6 +42,9 @@ import androidx.compose.ui.unit.dp
 import com.devscion.genai_pg_kmp.LocalAnimatedVisibilityScope
 import com.devscion.genai_pg_kmp.LocalTransitionScope
 import com.devscion.genai_pg_kmp.ui.components.ModelSelectionItem
+import genai_pg.genai_pg_kmp.composeapp.generated.resources.Res
+import genai_pg.genai_pg_kmp.composeapp.generated.resources.supported_formats
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun <T : Any> OptionSelectionContent(
@@ -49,6 +53,7 @@ fun <T : Any> OptionSelectionContent(
     options: List<T>,
     selectedOption: T?,
     getTags: T.() -> List<String>,
+    getFormats: T.() -> List<String> = { emptyList() },
     getName: T.() -> String,
     getDescription: T.() -> String,
     getDownloadUrl: T.() -> String?,
@@ -141,6 +146,7 @@ fun <T : Any> OptionSelectionContent(
                                         ModelInfoCard(
                                             description = getDescription(item),
                                             infoKey = infoKey,
+                                            formats = getFormats(item),
                                             onToggleInfo = {
                                                 showInfo = showInfo.not()
                                             }
@@ -161,6 +167,7 @@ private fun ModelInfoCard(
     modifier: Modifier = Modifier,
     description: String,
     infoKey: String,
+    formats: List<String>,
     onToggleInfo: () -> Unit,
 ) {
     val shape = RoundedCornerShape(16.dp)
@@ -223,5 +230,30 @@ private fun ModelInfoCard(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        if (formats.isNotEmpty()) {
+            FlowRow(
+                Modifier.fillMaxWidth()
+                    .padding(top = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    "${stringResource(Res.string.supported_formats)}: ",
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier
+                        .padding(6.dp)
+                )
+                formats.forEach {
+                    Text(
+                        it, style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier
+                            .background(
+                                MaterialTheme.colorScheme.secondaryContainer,
+                                shape = MaterialTheme.shapes.medium
+                            )
+                            .padding(6.dp)
+                    )
+                }
+            }
+        }
     }
 }

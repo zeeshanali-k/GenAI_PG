@@ -111,4 +111,37 @@ class InMemoryVectorStore {
         val denominator = sqrt(normA) * sqrt(normB)
         return if (denominator > 0f) dotProduct / denominator else 0f
     }
+
+    /**
+     * Simple embedding generation using basic hashing.
+     */
+    fun generateSimpleEmbedding(text: String): FloatArray {
+        val words = text.lowercase().split(Regex("\\s+"))
+        val embedding = FloatArray(128)
+
+        words.forEach { word ->
+            val hash = word.hashCode()
+            val index = kotlin.math.abs(hash % 128)
+            embedding[index] += 1f
+        }
+
+        // Normalize
+        val norm = sqrt(embedding.sumOf { (it * it).toDouble() }).toFloat()
+        if (norm > 0) {
+            for (i in embedding.indices) {
+                embedding[i] /= norm
+            }
+        }
+
+        return embedding
+    }
+
+    fun generateAndStoreEmbedding(text: String) {
+        val splitter = SimpleDocumentSplitter()
+        val splitText = splitter.split(text)
+        splitText.forEach { chunk ->
+            val embeddings = generateSimpleEmbedding(chunk)
+            add(chunk, embeddings)
+        }
+    }
 }
