@@ -55,6 +55,25 @@ Additional AI-related dependency in this repo:
 - `app/` - Android application shell
 - `GenAI_PG_KMP/composeApp/` - Shared KMP code (UI, domain, runtime managers, RAG, DB)
 - `GenAI_PG_KMP/iosApp/` - iOS host app
+- `media/` - Demo videos and recordings
+
+## Demo videos
+
+### Android demo
+
+<video src="./media/android.mov" controls width="720">
+  Your browser does not support the video tag.
+</video>
+
+Fallback link: [android.mov](./media/android.mov)
+
+### iOS demo
+
+<video src="./media/iOS.MP4" controls width="720">
+  Your browser does not support the video tag.
+</video>
+
+Fallback link: [iOS.MP4](./media/iOS.MP4)
 
 ## Notes
 
