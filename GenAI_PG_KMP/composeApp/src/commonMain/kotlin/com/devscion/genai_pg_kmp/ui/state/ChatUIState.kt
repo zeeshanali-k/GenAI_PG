@@ -1,6 +1,7 @@
 package com.devscion.genai_pg_kmp.ui.state
 
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import com.devscion.genai_pg_kmp.data.database.entity.ChatEntity
 import com.devscion.genai_pg_kmp.domain.model.ChatHistoryItem
 import com.devscion.genai_pg_kmp.domain.model.EmbeddingModel
 import com.devscion.genai_pg_kmp.domain.model.Model
@@ -13,7 +14,7 @@ sealed class ChatUIState {
     data class Success(
         val chatHistory: ChatHistory,
         val modelManagerState: ModelManagerState,
-        val documentsState: DocumentsState = DocumentsState(),
+        val documentsState: RAGDocumentsState = RAGDocumentsState(),
     ) : ChatUIState()
 }
 
@@ -44,5 +45,7 @@ sealed class ModelManagerError {
 }
 
 data class ChatHistory(
-    val history: SnapshotStateList<ChatHistoryItem> = SnapshotStateList(),
+    val chatMessages: SnapshotStateList<ChatHistoryItem> = SnapshotStateList(),
+    val chats: List<ChatEntity> = emptyList(),
+    val currentChatId: String? = null
 )

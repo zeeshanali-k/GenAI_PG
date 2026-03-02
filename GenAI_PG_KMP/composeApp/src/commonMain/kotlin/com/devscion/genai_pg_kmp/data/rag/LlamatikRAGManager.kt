@@ -69,17 +69,10 @@ class LlamatikRAGManager : RAGManager {
     override suspend fun retrieveContext(query: String, topK: Int): String =
         withContext(Dispatchers.IO) {
             try {
-                logger.d { "Retrieving context for query (topK=$topK)" }
-
-                // 1. Generate embedding for query
                 val queryEmbedding = LlamaBridge.embed(query)
-
-                // 2. Search vector store
                 val results = vectorStore.search(queryEmbedding, topK)
 
                 logger.d { "Retrieved ${results.size} results" }
-
-                // 3. Format results as context
                 if (results.isEmpty()) {
                     ""
                 } else {

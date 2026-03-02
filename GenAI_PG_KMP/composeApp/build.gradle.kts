@@ -1,5 +1,12 @@
 plugins {
     id("common-config")
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.room)
+    alias(libs.plugins.serialization)
+}
+
+room {
+    schemaDirectory("$projectDir/schemas")
 }
 
 kotlin {
@@ -50,12 +57,19 @@ kotlin {
             implementation(libs.koin.core)
             implementation(libs.koin.compose.viewmodel.navigation)
             implementation(libs.material.icons.core)
-            //Llamatik
+            implementation(libs.kotlinx.datetime)
+            implementation(libs.kotlinx.serialization.json)
 
+            //Llamatik
             implementation(libs.llamatik)
 
             // Moko Permissions
-            implementation("dev.icerock.moko:permissions-compose:0.18.0")
+            implementation(libs.moko.permissions.compose)
+            implementation(libs.moko.permissions.storage)
+
+            // Room
+            implementation(libs.room.runtime)
+            implementation(libs.sqlite.bundled)
         }
 //        commonTest.dependencies {
 //            implementation(libs.kotlin.test)
@@ -64,7 +78,11 @@ kotlin {
 }
 
 dependencies {
-    androidRuntimeClasspath(libs.ui.tooling)
+
+    add("kspAndroid", libs.room.compiler)
+    add("kspIosX64", libs.room.compiler)
+    add("kspIosArm64", libs.room.compiler)
+    add("kspIosSimulatorArm64", libs.room.compiler)
 }
 
 //compose.resources {

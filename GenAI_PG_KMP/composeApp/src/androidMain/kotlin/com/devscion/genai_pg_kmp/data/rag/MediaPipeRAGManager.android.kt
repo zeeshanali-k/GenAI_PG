@@ -69,7 +69,7 @@ class MediaPipeRAGManager(
     override suspend fun indexDocument(document: RAGDocument) {
         withContext(Dispatchers.IO) {
             try {
-                logger.d { "Indexing document: ${document.id}" }
+                logger.d { "Indexing document: ${document.id} :: ${document.content}" }
 
                 // Split document into chunks
                 val chunks = splitter.split(document.content)
@@ -126,28 +126,4 @@ class MediaPipeRAGManager(
     override suspend fun isInitialized(): Boolean {
         return isModelLoaded
     }
-
-    /**
-     * Simple embedding generation using basic hashing.
-     */
-//    private fun generateSimpleEmbedding(text: String): FloatArray {
-//        val words = text.lowercase().split(Regex("\\s+"))
-//        val embedding = FloatArray(128)
-//
-//        words.forEach { word ->
-//            val hash = word.hashCode()
-//            val index = kotlin.math.abs(hash % 128)
-//            embedding[index] += 1f
-//        }
-//
-//        // Normalize
-//        val norm = sqrt(embedding.sumOf { (it * it).toDouble() }).toFloat()
-//        if (norm > 0) {
-//            for (i in embedding.indices) {
-//                embedding[i] /= norm
-//            }
-//        }
-//
-//        return embedding
-//    }
 }

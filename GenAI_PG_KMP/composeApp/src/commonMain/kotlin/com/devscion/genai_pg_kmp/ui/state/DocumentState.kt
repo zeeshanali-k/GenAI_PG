@@ -1,12 +1,12 @@
 package com.devscion.genai_pg_kmp.ui.state
 
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 import com.devscion.genai_pg_kmp.domain.MediaType
 import com.devscion.genai_pg_kmp.domain.PlatformFile
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 /**
- * Represents a document attached for RAG.
+ * Represents a document attached for RAG/Vision/Audio.
  */
 @OptIn(ExperimentalUuidApi::class)
 data class DocumentState(
@@ -14,6 +14,7 @@ data class DocumentState(
     val title: String,
     val content: String,
     val isEmbedded: Boolean = false,
+    val isSent: Boolean = false,
     val type: MediaType = MediaType.DOCUMENT,
     val platformFile: PlatformFile? = null,
     val size: Long = content.length.toLong()
@@ -22,7 +23,7 @@ data class DocumentState(
 /**
  * State for document management in chat.
  */
-data class DocumentsState(
+data class RAGDocumentsState(
     val documents: List<DocumentState> = emptyList(),
     val isEmbedding: Boolean = false,
     val embeddingProgress: EmbeddingProgress? = null

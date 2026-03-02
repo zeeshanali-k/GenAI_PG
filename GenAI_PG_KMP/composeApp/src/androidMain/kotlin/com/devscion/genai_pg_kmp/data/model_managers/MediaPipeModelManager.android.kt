@@ -4,9 +4,8 @@ import android.content.Context
 import android.graphics.BitmapFactory
 import android.util.Log
 import com.devscion.genai_pg_kmp.data.rag.MediaPipeRAGManager
-import com.devscion.genai_pg_kmp.domain.LLMModelManager
+import com.devscion.genai_pg_kmp.domain.LLMRuntimeManager
 import com.devscion.genai_pg_kmp.domain.MediaType
-import com.devscion.genai_pg_kmp.domain.ModelPathProvider
 import com.devscion.genai_pg_kmp.domain.PlatformFile
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
 import com.devscion.genai_pg_kmp.domain.model.InferenceBackend
@@ -31,8 +30,7 @@ import kotlinx.coroutines.withContext
 class MediaPipeModelManager(
     private val context: Context,
     override var ragManager: RAGManager,
-    private val modelPathProvider: ModelPathProvider,
-) : LLMModelManager {
+) : LLMRuntimeManager {
 
     private val sessionOptions: LlmInferenceSession.LlmInferenceSessionOptions.Builder =
         LlmInferenceSession.LlmInferenceSessionOptions.builder()
@@ -51,10 +49,8 @@ class MediaPipeModelManager(
         }
         return withContext(Dispatchers.IO) {
             try {
-                val resolvedModelPath =
-                    modelPathProvider.resolvePath(modelPath) ?: return@withContext false
-                Log.d("MediaPipeModelManager", "resolvedModelPath -> $resolvedModelPath")
-                llmInferenceOptions.setModelPath(resolvedModelPath)
+                Log.d("MediaPipeModelManager", "resolvedModelPath -> $modelPath")
+                llmInferenceOptions.setModelPath(modelPath)
                     .setMaxTopK(model.topK)
                     .setMaxTokens(model.maxTokens)
                     .setPreferredBackend(model.backend.toMediaPipeBackend())

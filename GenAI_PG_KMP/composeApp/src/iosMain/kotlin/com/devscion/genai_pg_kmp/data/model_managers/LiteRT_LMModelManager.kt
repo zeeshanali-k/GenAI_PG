@@ -1,6 +1,6 @@
 package com.devscion.genai_pg_kmp.data.model_managers
 
-import com.devscion.genai_pg_kmp.domain.LLMModelManager
+import com.devscion.genai_pg_kmp.domain.LLMRuntimeManager
 import com.devscion.genai_pg_kmp.domain.PlatformFile
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
 import com.devscion.genai_pg_kmp.domain.model.Model
@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.emptyFlow
  * */
 class LiteRT_LMModelManager(
     override var ragManager: RAGManager
-) : LLMModelManager {
+) : LLMRuntimeManager {
 
     override var systemMessage: String? = null
 

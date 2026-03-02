@@ -2,7 +2,7 @@
 
 package com.devscion.genai_pg_kmp.data.model_managers
 
-import com.devscion.genai_pg_kmp.domain.LLMModelManager
+import com.devscion.genai_pg_kmp.domain.LLMRuntimeManager
 import com.devscion.genai_pg_kmp.domain.PlatformFile
 import com.devscion.genai_pg_kmp.domain.SwiftModelManager
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
@@ -19,7 +19,7 @@ import kotlinx.coroutines.withContext
 class MediaPipeModelManager(
     private val swiftModelManager: SwiftModelManager,
     override var ragManager: RAGManager,
-) : LLMModelManager {
+) : LLMRuntimeManager {
 
     override var systemMessage: String? = null
 

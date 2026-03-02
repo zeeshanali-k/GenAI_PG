@@ -26,17 +26,17 @@ import androidx.compose.runtime.retain.retain
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import com.devscion.genai_pg_kmp.ui.state.DocumentsState
+import com.devscion.genai_pg_kmp.ui.state.RAGDocumentsState
 import com.devscion.genai_pg_kmp.utils.plainClickable
 
 @Composable
 fun ChatInput(
     modifier: Modifier = Modifier,
     state: TextFieldState,
-    documentsState: DocumentsState = DocumentsState(),
+    documentsState: RAGDocumentsState,
     isGeneratingResponse: Boolean,
     onAttachMediaClick: () -> Unit,
-    onRemoveDocument: (String) -> Unit = {},
+    onRemoveDocument: (String) -> Unit,
     onSendClick: () -> Unit,
     onStopClick: () -> Unit,
 ) {
@@ -54,7 +54,6 @@ fun ChatInput(
             )
         }
 
-        // Attached Documents
         if (documentsState.documents.isNotEmpty()) {
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),

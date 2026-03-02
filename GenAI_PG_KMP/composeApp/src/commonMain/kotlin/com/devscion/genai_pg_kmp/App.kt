@@ -9,6 +9,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.devscion.genai_pg_kmp.domain.model.Platform
 import com.devscion.genai_pg_kmp.ui.ChatScreen
 import com.devscion.genai_pg_kmp.ui.screens.Chat
 
@@ -37,3 +38,5 @@ fun App() {
         }
     }
 }
+
+expect fun getPlatform(): Platform

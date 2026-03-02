@@ -13,6 +13,13 @@ import org.jetbrains.compose.resources.ResourceItem
 private const val MD: String =
     "composeResources/genai_pg.genai_pg_kmp.composeapp.generated.resources/"
 
+@delegate:ResourceContentHash(-1_796_999_583)
+public val Res.drawable.rounded_chat_bubble_24: DrawableResource by lazy {
+      DrawableResource("drawable:rounded_chat_bubble_24", setOf(
+        ResourceItem(setOf(), "${MD}drawable/rounded_chat_bubble_24.xml", -1, -1),
+      ))
+    }
+
 @delegate:ResourceContentHash(-31_121_552)
 public val Res.drawable.rounded_downloading_24: DrawableResource by lazy {
       DrawableResource("drawable:rounded_downloading_24", setOf(
@@ -29,6 +36,7 @@ public val Res.drawable.rounded_file_open_24: DrawableResource by lazy {
 
 @InternalResourceApi
 internal fun _collectCommonMainDrawable0Resources(map: MutableMap<String, DrawableResource>) {
+  map.put("rounded_chat_bubble_24", Res.drawable.rounded_chat_bubble_24)
   map.put("rounded_downloading_24", Res.drawable.rounded_downloading_24)
   map.put("rounded_file_open_24", Res.drawable.rounded_file_open_24)
 }
