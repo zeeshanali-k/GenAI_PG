@@ -136,12 +136,12 @@ class InMemoryVectorStore {
         return embedding
     }
 
-    fun generateAndStoreEmbedding(text: String) {
+    fun generateAndStoreEmbedding(text: String, documentId: String = "") {
         val splitter = SimpleDocumentSplitter()
         val splitText = splitter.split(text)
         splitText.forEach { chunk ->
             val embeddings = generateSimpleEmbedding(chunk)
-            add(chunk, embeddings)
+            add(text = chunk, embedding = embeddings, documentId = documentId)
         }
     }
 }

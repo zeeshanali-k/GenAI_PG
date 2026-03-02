@@ -4,7 +4,7 @@ import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.provider.OpenableColumns
 import android.util.Log
-import com.devscion.genai_pg_kmp.domain.LLMModelManager
+import com.devscion.genai_pg_kmp.domain.LLMRuntimeManager
 import com.devscion.genai_pg_kmp.domain.MediaType
 import com.devscion.genai_pg_kmp.domain.PlatformFile
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
@@ -34,7 +34,7 @@ import java.io.FileOutputStream
 
 class LiteRTLM_ModelManager(
     override var ragManager: RAGManager
-) : LLMModelManager, KoinComponent {
+) : LLMRuntimeManager, KoinComponent {
 
     private var conversation: Conversation? = null
     override var systemMessage: String? = null

@@ -7,7 +7,7 @@ import com.devscion.genai_pg_kmp.domain.rag.RAGDocument
 import com.devscion.genai_pg_kmp.domain.rag.RAGManager
 import kotlinx.coroutines.flow.Flow
 
-interface LLMModelManager {
+interface LLMRuntimeManager {
 
     var systemMessage: String?
 

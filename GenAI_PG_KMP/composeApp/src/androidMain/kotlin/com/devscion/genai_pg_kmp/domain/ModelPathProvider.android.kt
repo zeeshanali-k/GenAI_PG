@@ -33,7 +33,7 @@ class ModelPathProviderAndroid(
     }
 
     override suspend fun resolvePath(path: String): String? = withContext(Dispatchers.IO) {
-        if (!path.startsWith("content://")) return@withContext path
+        if (path.startsWith("content://").not()) return@withContext path
         val uri = path.toUri()
         return@withContext try {
             modelPfd?.close()

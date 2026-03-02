@@ -1,7 +1,7 @@
 package com.devscion.genai_pg_kmp.data
 
 import co.touchlab.kermit.Logger
-import com.devscion.genai_pg_kmp.domain.LLMModelManager
+import com.devscion.genai_pg_kmp.domain.LLMRuntimeManager
 import com.devscion.genai_pg_kmp.domain.PlatformFile
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
 import com.devscion.genai_pg_kmp.domain.model.Model
@@ -17,9 +17,10 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+//TODO: test on physical device and improve rag prompt to response regardless of retrieved rag context
 class LlamatikModelManager(
     override var ragManager: RAGManager
-) : LLMModelManager {
+) : LLMRuntimeManager {
     override var systemMessage: String? = null
 
     override suspend fun loadModel(model: Model): Boolean {

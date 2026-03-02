@@ -6,7 +6,7 @@ import com.devscion.genai_pg_kmp.data.database.AppDatabase
 import com.devscion.genai_pg_kmp.data.database.DatabaseBuilder
 import com.devscion.genai_pg_kmp.data.rag.LlamatikRAGManager
 import com.devscion.genai_pg_kmp.data.repository.ChatRepositoryImpl
-import com.devscion.genai_pg_kmp.domain.LLMModelManager
+import com.devscion.genai_pg_kmp.domain.LLMRuntimeManager
 import com.devscion.genai_pg_kmp.domain.model.ModelManagerRuntime
 import com.devscion.genai_pg_kmp.domain.rag.RAGManager
 import com.devscion.genai_pg_kmp.domain.repository.ChatRepository
@@ -46,7 +46,7 @@ val modelManagerModule = module {
     } bind RAGManager::class
 
     // Llamatik model manager with RAG support
-    factory<LLMModelManager>(named(ModelManagerRuntime.LlamaTIK)) {
+    factory<LLMRuntimeManager>(named(ModelManagerRuntime.LlamaTIK)) {
         LlamatikModelManager(get(named(ModelManagerRuntime.LlamaTIK)))
     }
 }

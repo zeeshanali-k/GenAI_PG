@@ -6,60 +6,59 @@
 //
 
 import Foundation
-import composeApp
 import MediaPipeTasksGenAI
 import MediaPipeTasksGenAIC
 import SwiftUI
-
+import composeApp
 
 class MediaPipeModelManager: SwiftModelManager {
 
     var llmInference: LlmInference?
     var llmInferenceSession: LlmInference.Session?
 
-    func generateResponseAsync(inputText: String,
-                               attachments: [PlatformFile],
-                               progress: @escaping (String) -> Void, completion: @escaping (String, String?) -> Void) async throws {
-//        try attachments.forEach({file in 
-//            if(file.bytes != nil){
-//                let data = file.bytes!.toData()
-//                if(file.type == MediaType.image){
-//                    let image = UIImage(data: data)?.cgImage
-//                    if(image != nil){
-//                        try llmInferenceSession!.addImage(image: image!)
-//                    }
-//                }
-//            }
-//        })
+    func generateResponseAsync(
+        inputText: String,
+        attachments: [PlatformFile],
+        progress: @escaping (String) -> Void, completion: @escaping (String, String?) -> Void
+    ) async throws {
+        //        try attachments.forEach({file in
+        //            if(file.bytes != nil){
+        //                let data = file.bytes!.toData()
+        //                if(file.type == MediaType.image){
+        //                    let image = UIImage(data: data)?.cgImage
+        //                    if(image != nil){
+        //                        try llmInferenceSession!.addImage(image: image!)
+        //                    }
+        //                }
+        //            }
+        //        })
         try llmInferenceSession!.addQueryChunk(inputText: inputText)
-        try llmInferenceSession!.generateResponseAsync(progress: {partialResponse, error in
-            // progress
-            if let e = error {
-                print(" \(e)")
-                completion("", e.localizedDescription)
-                return
-            }
-            if let partial = partialResponse {
-                progress(partial)
-            }
-        }, completion: {
-            completion("", nil)
-        })
+        try llmInferenceSession!.generateResponseAsync(
+            progress: { partialResponse, error in
+                // progress
+                if let e = error {
+                    print(" \(e)")
+                    completion("", e.localizedDescription)
+                    return
+                }
+                if let partial = partialResponse {
+                    progress(partial)
+                }
+            },
+            completion: {
+                completion("", nil)
+            })
     }
 
     func loadModel(model: Model) -> Bool {
-
-        print("model id-> \(model.id.deletingSuffix(".bin"))")
-        guard let path = Bundle.main.path(forResource: model.id.deletingSuffix(".bin"),
-                                          ofType: "bin")
-        else {
+        guard let path = model.localPath, !path.isEmpty else {
             return false
         }
         print("path-> \(path)")
         let llmOptions = LlmInference.Options(modelPath: path)
         llmOptions.maxTokens = Int(model.maxTokens)
         // llmOptions.maxTopk = Int(model.topK)
-//        llmOptions.temperature = 0.9
+        //        llmOptions.temperature = 0.9
         do {
             print("Loading")
             llmInference = try LlmInference(options: llmOptions)
@@ -83,7 +82,7 @@ class MediaPipeModelManager: SwiftModelManager {
         }
 
         let options = LlmInference.Session.Options()
-        options.topk = Int(model.topK)
+        // options.topk = Int(model.topK)
         options.randomSeed = Int(model.randomSeed)
         options.temperature = model.temperature
         options.topp = model.topP
@@ -102,7 +101,7 @@ class MediaPipeModelManager: SwiftModelManager {
     }
 
     func stopResponseGeneration() {
-//        llmInferenceSession?.stop
+        //        llmInferenceSession?.stop
     }
 
 

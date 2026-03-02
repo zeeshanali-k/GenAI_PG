@@ -7,7 +7,19 @@ enum class ModelManagerOption(
     val managerName: String,
     val type: ModelManagerRuntime,
     val features: List<ModelManagerRuntimeFeature>,
-    val supportedFormats: List<ModelSupportedFormat> = buildList {
+    val supportedRagModelFormats: List<ModelSupportedFormat> = buildList {
+        if (type in listOf(
+                ModelManagerRuntime.MEDIA_PIPE,
+                ModelManagerRuntime.LITE_RT_LM
+            )
+        ) {
+            add(ModelSupportedFormat.TFLITE)
+            add(ModelSupportedFormat.DOT_MODEL)
+        } else {
+            add(ModelSupportedFormat.BIN)
+        }
+    },
+    val supportedModelFormats: List<ModelSupportedFormat> = buildList {
         when (type) {
             ModelManagerRuntime.LITE_RT_LM -> {
                 add(ModelSupportedFormat.LITERT)

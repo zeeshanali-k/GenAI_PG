@@ -7,7 +7,7 @@ import com.devscion.genai_pg_kmp.data.model_managers.LiteRTLM_ModelManager
 import com.devscion.genai_pg_kmp.data.model_managers.MediaPipeModelManager
 import com.devscion.genai_pg_kmp.data.rag.MediaPipeRAGManager
 import com.devscion.genai_pg_kmp.domain.FilePicker
-import com.devscion.genai_pg_kmp.domain.LLMModelManager
+import com.devscion.genai_pg_kmp.domain.LLMRuntimeManager
 import com.devscion.genai_pg_kmp.domain.ModelPathProvider
 import com.devscion.genai_pg_kmp.domain.ModelPathProviderAndroid
 import com.devscion.genai_pg_kmp.domain.ModelSettings
@@ -35,11 +35,11 @@ actual val platformKoinModule: Module = module {
     //Model Managers
     factory(named(ModelManagerRuntime.LITE_RT_LM)) {
         LiteRTLM_ModelManager(get(named(ModelManagerRuntime.LlamaTIK)))
-    } bind LLMModelManager::class
+    } bind LLMRuntimeManager::class
 
     factory(named(ModelManagerRuntime.MEDIA_PIPE)) {
-        MediaPipeModelManager(androidContext(), get(named(ModelManagerRuntime.MEDIA_PIPE)), get())
-    } bind LLMModelManager::class
+        MediaPipeModelManager(androidContext(), get(named(ModelManagerRuntime.MEDIA_PIPE)))
+    } bind LLMRuntimeManager::class
 
     //Misc
     factoryOf(::ModelPathProviderAndroid) bind ModelPathProvider::class

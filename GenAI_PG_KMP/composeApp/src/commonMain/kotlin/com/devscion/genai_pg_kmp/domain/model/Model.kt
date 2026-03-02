@@ -944,7 +944,7 @@ data class Model(
 enum class ModelSupportedFormat(
     val format: String,
 ) {
-    GGUF("gguf"), BIN("bin"), LITERT("litertlm"), TASK("task")
+    GGUF("gguf"), BIN("bin"), LITERT("litertlm"), TASK("task"), TFLITE("tflite"), DOT_MODEL("model")
 }
 
 data class EmbeddingModel(

@@ -13,7 +13,6 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,12 +22,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material.icons.Icons
@@ -192,6 +192,7 @@ fun ChatScreen() {
                     documentsState = it.documentsState,
                     onRemoveDocument = viewModel::removeDocument,
                     onFilePickForModel = viewModel::onFilePickForModel,
+                    lazyListState = viewModel.lazyListState,
                 )
             }
 
@@ -208,6 +209,7 @@ fun ChatScreen() {
 @Composable
 fun ChatHistoryContent(
     modifier: Modifier,
+    lazyListState: LazyListState,
     modelManagerState: ModelManagerState,
     chatHistory: ChatHistory,
     inputFieldState: TextFieldState,
@@ -239,6 +241,7 @@ fun ChatHistoryContent(
             Box(Modifier.fillMaxSize()) {
                 Column(
                     Modifier.fillMaxSize()
+                        .imePadding()
                         .padding(horizontal = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
@@ -311,7 +314,6 @@ fun ChatHistoryContent(
                         AnimatedContent(
                             modelManagerState.selectedManager != null &&
                                     modelManagerState.selectedLLM != null
-                                    && modelManagerState.selectedManager.type != ModelManagerRuntime.LlamaTIK
                         ) {
                             if (it) {
                                 Icon(
@@ -334,8 +336,7 @@ fun ChatHistoryContent(
 
                     AnimatedContent(
                         modelManagerState.selectedLLM != null
-                                && (isRAGEnabled || showEmbeddingModelOptions)
-                                && modelManagerState.selectedManager?.type != ModelManagerRuntime.LlamaTIK,
+                                && (isRAGEnabled || showEmbeddingModelOptions),
                         transitionSpec = {
                             slideInVertically { -it }.togetherWith(slideOutVertically { it })
                         }
@@ -375,41 +376,39 @@ fun ChatHistoryContent(
                                     }
                                 }
 
-                                // Tokenizer Selection Button
-                                AnimatedContent(
-                                    modifier = Modifier.weight(1f),
-                                    targetState = modelManagerState.showTokenizerSelection,
-                                    transitionSpec = { EnterTransition.None togetherWith ExitTransition.None }
-                                ) { showTokenizerSelection ->
-                                    CompositionLocalProvider(LocalAnimatedVisibilityScope provides this) {
-                                        SelectionButton(
-                                            modifier = with(LocalTransitionScope.current!!) {
-                                                Modifier.fillMaxWidth()
-                                                    .then(
-                                                        if (showTokenizerSelection.not())
-                                                            Modifier.sharedBounds(
-                                                                rememberSharedContentState("optionSelectionContent4"),
-                                                                LocalAnimatedVisibilityScope.current!!,
-                                                                resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(),
-                                                            )
-                                                        else Modifier
-                                                    )
-                                            },
-                                            title = modelManagerState.selectedTokenizer?.name
-                                                ?: "Select Tokenizer",
-                                            isSelected = false,
-                                            onClick = onToggleTokenizerSelection,
-                                        )
+                                if (modelManagerState.selectedManager?.type != ModelManagerRuntime.LlamaTIK) {
+                                    // Tokenizer Selection Button
+                                    AnimatedContent(
+                                        modifier = Modifier.weight(1f),
+                                        targetState = modelManagerState.showTokenizerSelection,
+                                        transitionSpec = { EnterTransition.None togetherWith ExitTransition.None }
+                                    ) { showTokenizerSelection ->
+                                        CompositionLocalProvider(LocalAnimatedVisibilityScope provides this) {
+                                            SelectionButton(
+                                                modifier = with(LocalTransitionScope.current!!) {
+                                                    Modifier.fillMaxWidth()
+                                                        .then(
+                                                            if (showTokenizerSelection.not())
+                                                                Modifier.sharedBounds(
+                                                                    rememberSharedContentState("optionSelectionContent4"),
+                                                                    LocalAnimatedVisibilityScope.current!!,
+                                                                    resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(),
+                                                                )
+                                                            else Modifier
+                                                        )
+                                                },
+                                                title = modelManagerState.selectedTokenizer?.name
+                                                    ?: "Select Tokenizer",
+                                                isSelected = false,
+                                                onClick = onToggleTokenizerSelection,
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
                     }
 
-                    val listState = rememberLazyListState()
-                    LaunchedEffect(chatHistory.chatMessages) {
-                        listState.scrollBy(Float.MAX_VALUE)
-                    }
                     LazyColumn(
                         Modifier.fillMaxWidth()
                             .weight(1f)
@@ -417,7 +416,7 @@ fun ChatHistoryContent(
                                 MaterialTheme.colorScheme.surfaceContainer,
                                 MaterialTheme.shapes.medium
                             ),
-                        state = listState,
+                        state = lazyListState,
                         verticalArrangement = Arrangement.spacedBy(20.dp),
                         contentPadding = PaddingValues(
                             vertical = 12.dp
@@ -512,7 +511,7 @@ fun ChatHistoryContent(
                                         selectedOption = modelManagerState.selectedManager,
                                         getName = { managerName },
                                         getTags = { features.map { it.title } },
-                                        getFormats = { supportedFormats.map { it.format } },
+                                        getFormats = { supportedModelFormats.map { it.format } },
                                         getDescription = { desciption },
                                         getDownloadUrl = { null },
                                         getLocalPath = { null },

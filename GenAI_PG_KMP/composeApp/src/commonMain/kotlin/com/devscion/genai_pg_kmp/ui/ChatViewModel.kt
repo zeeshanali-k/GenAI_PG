@@ -2,13 +2,16 @@
 
 package com.devscion.genai_pg_kmp.ui
 
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
 import com.devscion.genai_pg_kmp.domain.FilePicker
-import com.devscion.genai_pg_kmp.domain.LLMModelManager
+import com.devscion.genai_pg_kmp.domain.LLMRuntimeManager
 import com.devscion.genai_pg_kmp.domain.MediaType
+import com.devscion.genai_pg_kmp.domain.ModelPathProvider
 import com.devscion.genai_pg_kmp.domain.ModelSettings
 import com.devscion.genai_pg_kmp.domain.PlatformDetailProvider
 import com.devscion.genai_pg_kmp.domain.PlatformFile
@@ -33,7 +36,9 @@ import com.devscion.genai_pg_kmp.ui.state.RAGDocumentsState
 import dev.icerock.moko.permissions.Permission
 import dev.icerock.moko.permissions.PermissionsController
 import dev.icerock.moko.permissions.storage.STORAGE
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,6 +48,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.qualifier.named
 import kotlin.contracts.ExperimentalContracts
@@ -53,10 +59,13 @@ import kotlin.uuid.Uuid
 class ChatViewModel(
     private val platformDetailProvider: PlatformDetailProvider,
     private val filePicker: FilePicker,
+    private val modelPathProvider: ModelPathProvider,
     private val modelSettings: ModelSettings,
     private val chatRepository: ChatRepository
 ) : ViewModel(), KoinComponent {
     private val logger = Logger.withTag("ChatVM")
+
+    val lazyListState = LazyListState()
 
     private lateinit var permissionsController: PermissionsController
 
@@ -105,7 +114,7 @@ class ChatViewModel(
         ChatUIState.Loading
     )
 
-    private var modelManager: LLMModelManager? = null
+    private var modelManager: LLMRuntimeManager? = null
 
     init {
         viewModelScope.launch {
@@ -188,7 +197,6 @@ class ChatViewModel(
                     documents = it.documents.map { it.copy(isSent = true) }
                 )
             }
-            logger.d { "Docs: ${documentsState.value}" }
             val ragDocuments =
                 documentsState.value.documents.filter { it.type == MediaType.DOCUMENT }
             // Filter attachments for Multimodal (Image, Audio)
@@ -234,7 +242,7 @@ class ChatViewModel(
                 if (it.isDone) {
                     cleanup()
                 }
-
+                lazyListState.scrollBy(Float.MAX_VALUE)
             }
         }
     }
@@ -277,48 +285,62 @@ class ChatViewModel(
             modelManagerState.update { it.copy(ragError = "Please select the model file for ${selectedLLM.name}") }
             return false
         }
-        val isRuntimeMediaSupported =
+        val isMediaSupported =
             modelManagerState.value.selectedManager?.type != ModelManagerRuntime.LlamaTIK
 
-        // Validation: Vision
-        val isVisionNeeded = documentsState.value.documents.any { it.type == MediaType.IMAGE }
-        if (isVisionNeeded && selectedLLM.features.contains(ModelManagerRuntimeFeature.VISION)
-                .not()
-            && isRuntimeMediaSupported
-        ) {
-            modelManagerState.update { it.copy(ragError = "Selected model does not support Vision (images).") }
-            return false
-        }
+        if (isMediaSupported) {
+            // Validation: Vision
+            val isVisionNeeded = documentsState.value.documents.any { it.type == MediaType.IMAGE }
+            if (isVisionNeeded && selectedLLM.features.contains(ModelManagerRuntimeFeature.VISION)
+                    .not()
+            ) {
+                modelManagerState.update { it.copy(ragError = "Selected model does not support Vision (images).") }
+                return false
+            }
 
-        // Validation: Audio
-        val isAudioNeeded = documentsState.value.documents.any { it.type == MediaType.AUDIO }
-        if (isAudioNeeded && selectedLLM.features.contains(ModelManagerRuntimeFeature.AUDIO).not()
-            && isRuntimeMediaSupported
-        ) {
-            modelManagerState.update { it.copy(ragError = "Selected model does not support Audio.") }
-            return false
+            // Validation: Audio
+            val isAudioNeeded = documentsState.value.documents.any { it.type == MediaType.AUDIO }
+            if (isAudioNeeded && selectedLLM.features.contains(ModelManagerRuntimeFeature.AUDIO)
+                    .not()
+            ) {
+                modelManagerState.update { it.copy(ragError = "Selected model does not support Audio.") }
+                return false
+            }
         }
+        return if (platformDetailProvider.getPlatform() == Platform.IOS) {
+            true
+        } else {
+            validateRag()
+        }
+    }
 
+    private fun validateRag(): Boolean {
         // Validation: RAG
-        if (modelManagerState.value.selectedManager?.type != ModelManagerRuntime.LlamaTIK) {
-            val isRAGNeeded = documentsState.value.documents.any { it.type == MediaType.DOCUMENT }
-            if (isRAGNeeded) {
-                if (modelManagerState.value.selectedEmbeddingModel == null
-                    || modelManagerState.value.selectedTokenizer == null
-                ) {
-                    modelManagerState.update { it.copy(ragError = "Please select an Embedding Model and Tokenizer for RAG.") }
+        val isRAGNeeded = documentsState.value.documents.any { it.type == MediaType.DOCUMENT }
+        if (isRAGNeeded) {
+            if (modelManagerState.value.selectedEmbeddingModel == null
+            ) {
+                modelManagerState.update { it.copy(ragError = "Please select an Embedding Model for RAG.") }
+                return false
+            }
+
+            if (modelManagerState.value.selectedManager?.type != ModelManagerRuntime.LlamaTIK) {
+                if (modelManagerState.value.selectedTokenizer == null) {
+                    modelManagerState.update { it.copy(ragError = "Please select a Tokenizer for RAG.") }
                     return false
                 }
             }
-            if (isRAGNeeded) {
-                if (modelManagerState.value.selectedEmbeddingModel?.localPath == null) {
-                    modelManagerState.update { it.copy(ragError = "Please select the file for Embedding Model") }
-                    return false
-                }
-                if (modelManagerState.value.selectedTokenizer?.localPath == null) {
-                    modelManagerState.update { it.copy(ragError = "Please select the file for Tokenizer") }
-                    return false
-                }
+        }
+        if (isRAGNeeded) {
+            if (modelManagerState.value.selectedEmbeddingModel?.localPath == null) {
+                modelManagerState.update { it.copy(ragError = "Please select the file for Embedding Model") }
+                return false
+            }
+            if (modelManagerState.value.selectedTokenizer?.localPath == null
+                && modelManagerState.value.selectedManager?.type != ModelManagerRuntime.LlamaTIK
+            ) {
+                modelManagerState.update { it.copy(ragError = "Please select the file for Tokenizer") }
+                return false
             }
         }
         return true
@@ -467,11 +489,11 @@ class ChatViewModel(
     fun onFilePickForModel(model: Model) {
         viewModelScope.launch {
             val file =
-                filePicker.pickFile(modelManagerState.value.selectedManager!!.supportedFormats.map { it.format })
+                filePicker.pickFile(modelManagerState.value.selectedManager!!.supportedModelFormats.map { it.format })
             if (file != null) {
                 modelManagerState.update { state ->
                     val updatedModel = model.copy(localPath = file.pathOrUri)
-                    updatedModel.let { modelSettings.savePath(it.id, it.localPath) }
+                    updatedModel.let { modelSettings.savePath(id = it.id, path = file.pathOrUri) }
                     state.copy(
                         selectedLLM = updatedModel,
                     )
@@ -488,20 +510,30 @@ class ChatViewModel(
                 modelManagerError = ModelManagerError.Initial
             )
         }
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val selectedModel = modelManagerState.value.selectedLLM!!
-            val isLoaded = modelManager!!.loadModel(selectedModel)
-            modelManagerState.update {
-                it.copy(
-                    isLoadingModel = false,
-                    showModelSelection = isLoaded.not(),
-                    modelManagerError = if (isLoaded) ModelManagerError.Initial
-                    else ModelManagerError.FailedToLoadModel,
-                )
+
+            val path = selectedModel.localPath?.let {
+                modelPathProvider.resolvePath(it)
             }
-            if (isLoaded.not()) {
-                resetModelPath(selectedModel)
-                onFilePickForModel(selectedModel)
+            val isLoaded = modelManager!!.loadModel(
+                selectedModel.copy(
+                    localPath = path,
+                )
+            )
+            withContext(Dispatchers.Main) {
+                modelManagerState.update {
+                    it.copy(
+                        isLoadingModel = false,
+                        showModelSelection = isLoaded.not(),
+                        modelManagerError = if (isLoaded) ModelManagerError.Initial
+                        else ModelManagerError.FailedToLoadModel,
+                    )
+                }
+                if (isLoaded.not()) {
+                    resetModelPath(selectedModel)
+                    onFilePickForModel(selectedModel)
+                }
             }
         }
     }
@@ -522,7 +554,8 @@ class ChatViewModel(
 
     fun onPickEmbeddingModel(embeddingModel: EmbeddingModel) {
         viewModelScope.launch {
-            val file = filePicker.pickFile(listOf("tflite", "bin"))
+            val file =
+                filePicker.pickFile(modelManagerState.value.selectedManager!!.supportedRagModelFormats.map { it.format })
             if (file != null) {
                 modelManagerState.update { state ->
                     val updatedModel =
@@ -536,7 +569,8 @@ class ChatViewModel(
 
     fun onPickTokenizerModel(tokenizerModel: TokenizerModel) {
         viewModelScope.launch {
-            val file = filePicker.pickFile(listOf("model", "bin"))
+            val file =
+                filePicker.pickFile(modelManagerState.value.selectedManager!!.supportedRagModelFormats.map { it.format })
             if (file != null) {
                 modelManagerState.update { state ->
                     val updatedTokenizer = tokenizerModel.copy(localPath = file.pathOrUri)
@@ -595,6 +629,18 @@ class ChatViewModel(
 
     // RAG Document Management
     fun attachDocument(file: PlatformFile) {
+        val features = modelManagerState.value.selectedManager?.features
+        if ((features?.contains(ModelManagerRuntimeFeature.VISION)?.not() ?: false)
+            && features.contains(ModelManagerRuntimeFeature.AUDIO).not()
+            && file.type in listOf(MediaType.AUDIO, MediaType.IMAGE)
+        ) {
+            modelManagerState.update {
+                it.copy(
+                    ragError = "Selected runtime doesn't support media inference yet."
+                )
+            }
+            return
+        }
         val document = DocumentState(
             title = file.name,
             content = file.content ?: "",
@@ -655,6 +701,7 @@ class ChatViewModel(
     }
 
     private suspend fun embedPendingDocuments(isReEmbedding: Boolean = false) {
+        println("ChatVM: embedPendingDocuments-> ${documentsState.value.documents.size}")
         logger.d { "embedPendingDocuments: ${documentsState.value.documents.size}" }
         val pendingDocs = documentsState.value.documents.filter {
             logger.d { "embedPendingDocuments: filter-> $it" }
