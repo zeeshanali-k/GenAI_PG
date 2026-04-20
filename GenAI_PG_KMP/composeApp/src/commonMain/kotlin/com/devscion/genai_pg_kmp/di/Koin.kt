@@ -1,15 +1,19 @@
 package com.devscion.genai_pg_kmp.di
 
-import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import androidx.room.RoomDatabase
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.execSQL
 import com.devscion.genai_pg_kmp.data.LlamatikModelManager
 import com.devscion.genai_pg_kmp.data.database.AppDatabase
 import com.devscion.genai_pg_kmp.data.database.DatabaseBuilder
 import com.devscion.genai_pg_kmp.data.rag.LlamatikRAGManager
 import com.devscion.genai_pg_kmp.data.repository.ChatRepositoryImpl
+import com.devscion.genai_pg_kmp.data.repository.VectorDBRepositoryImpl
 import com.devscion.genai_pg_kmp.domain.LLMRuntimeManager
 import com.devscion.genai_pg_kmp.domain.model.ModelManagerRuntime
 import com.devscion.genai_pg_kmp.domain.rag.RAGManager
 import com.devscion.genai_pg_kmp.domain.repository.ChatRepository
+import com.devscion.genai_pg_kmp.domain.repository.VectorDBRepository
 import com.devscion.genai_pg_kmp.ui.ChatViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
@@ -58,14 +62,27 @@ val viewModelModule = module {
 val databaseModule = module {
     single<AppDatabase> {
         get<DatabaseBuilder>().get()
-            .setDriver(BundledSQLiteDriver())
             .setQueryCoroutineContext(Dispatchers.IO)
+            .addCallback(object : RoomDatabase.Callback() {
+                override fun onCreate(connection: SQLiteConnection) {
+                    // vec0 virtual tables are NOT managed by Room's schema system
+                    connection.execSQL(
+                        """CREATE VIRTUAL TABLE IF NOT EXISTS doc_embeddings USING vec0(       
+                           embedding float[768],
+                           +content TEXT,
+                           +file_name TEXT
+                        )"""
+                    )
+                }
+            })
             .build()
     }
     single { get<AppDatabase>().chatDao() }
     single { get<AppDatabase>().messageDao() }
+    single { get<AppDatabase>().vectorEmbeddingsDao() }
 }
 
 val repositoryModule = module {
     singleOf(::ChatRepositoryImpl) bind ChatRepository::class
+    singleOf(::VectorDBRepositoryImpl) bind VectorDBRepository::class
 }

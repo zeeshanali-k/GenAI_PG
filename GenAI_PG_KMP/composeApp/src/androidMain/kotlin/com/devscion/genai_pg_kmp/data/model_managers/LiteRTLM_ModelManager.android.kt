@@ -52,16 +52,16 @@ class LiteRTLM_ModelManager(
                     modelPath = resolvedModelPath,
                     backend = model.backend.toLiteRTLMBackend(),
                     maxNumTokens = model.maxTokens,
-                    visionBackend = if (model.features.contains(ModelManagerRuntimeFeature.VISION)) Backend.GPU else null,
-                    audioBackend = if (model.features.contains(ModelManagerRuntimeFeature.AUDIO)) Backend.GPU else null
+                    visionBackend = if (model.features.contains(ModelManagerRuntimeFeature.VISION)) Backend.GPU() else null,
+                    audioBackend = if (model.features.contains(ModelManagerRuntimeFeature.AUDIO)) Backend.GPU() else null
                     // optional: Pick a writable dir. This can improve 2nd load time.
                     // cacheDir = "/tmp/" or context.cacheDir.path (for Android)
                 )
                 engine = Engine(engineConfig)
                 engine?.initialize()
                 val conversationConfig = ConversationConfig(
-                    systemMessage = systemMessage?.let {
-                        Message.model(Contents.of(Content.Text(it)))
+                    systemInstruction = systemMessage?.let {
+                        Contents.of(Content.Text(it))
                     },
                     samplerConfig = SamplerConfig(
                         topK = model.topK,
@@ -168,8 +168,8 @@ class LiteRTLM_ModelManager(
 
 
     fun InferenceBackend.toLiteRTLMBackend(): Backend = when (this) {
-        InferenceBackend.CPU -> Backend.CPU
-        InferenceBackend.GPU -> Backend.GPU
+        InferenceBackend.CPU -> Backend.CPU()
+        InferenceBackend.GPU -> Backend.GPU()
     }
 
     private fun resolveModelPath(pathOrUri: String): String? {

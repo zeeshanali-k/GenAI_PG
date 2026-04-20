@@ -10,7 +10,6 @@ import com.devscion.genai_pg_kmp.domain.PlatformFile
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
 import com.devscion.genai_pg_kmp.domain.model.InferenceBackend
 import com.devscion.genai_pg_kmp.domain.model.Model
-import com.devscion.genai_pg_kmp.domain.model.ModelManagerRuntimeFeature
 import com.devscion.genai_pg_kmp.domain.rag.RAGManager
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.genai.llminference.GraphOptions
@@ -82,8 +81,8 @@ class MediaPipeModelManager(
                 }
                 setGraphOptions(
                     GraphOptions.builder()
-                        .setEnableVisionModality(model.features.contains(ModelManagerRuntimeFeature.VISION))
-                        .setEnableAudioModality(model.features.contains(ModelManagerRuntimeFeature.AUDIO))
+//                        .setEnableVisionModality(model.features.contains(ModelManagerRuntimeFeature.VISION))
+//                        .setEnableAudioModality(model.features.contains(ModelManagerRuntimeFeature.AUDIO))
                         .build()
                 )
             }

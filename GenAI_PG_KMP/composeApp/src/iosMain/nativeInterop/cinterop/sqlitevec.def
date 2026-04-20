@@ -1,0 +1,6 @@
+package = sqlitevec
+headers = sqlite-vec.h register_sqlite_vec.h
+staticLibraries = libsqlitevec.a
+compilerOpts = -I.
+# headerFilter limits what gets imported — we only need what's in sqlite-vec.h
+headerFilter = sqlite-vec.h register_sqlite_vec.h
