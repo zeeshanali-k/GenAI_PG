@@ -3,6 +3,7 @@ package com.devscion.genai_pg_kmp.di
 import androidx.room.RoomDatabase
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.execSQL
+import co.touchlab.kermit.Logger
 import com.devscion.genai_pg_kmp.data.LlamatikModelManager
 import com.devscion.genai_pg_kmp.data.database.AppDatabase
 import com.devscion.genai_pg_kmp.data.database.DatabaseBuilder
@@ -65,14 +66,21 @@ val databaseModule = module {
             .setQueryCoroutineContext(Dispatchers.IO)
             .addCallback(object : RoomDatabase.Callback() {
                 override fun onCreate(connection: SQLiteConnection) {
+                    Logger.d(null, "RoomDBCallBack") {
+                        "onCreate-> ${connection.inTransaction()}"
+                    }
                     // vec0 virtual tables are NOT managed by Room's schema system
                     connection.execSQL(
                         """CREATE VIRTUAL TABLE IF NOT EXISTS doc_embeddings USING vec0(       
                            embedding float[768],
                            +content TEXT,
+                           +chat_id TEXT,
                            +file_name TEXT
                         )"""
                     )
+                    Logger.d(null, "RoomDBCallBack") {
+                        "onCreate-> execSQL done    "
+                    }
                 }
             })
             .build()

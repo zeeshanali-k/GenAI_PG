@@ -31,15 +31,16 @@ class MediaPipeRAGManager(
         tokenizerPath: String,
     ): Boolean = withContext(Dispatchers.IO) {
         try {
-            logger.d { "Loading embedding model: $embeddingModelPath" }
+            val path = modelPathProvider.resolvePath(embeddingModelPath)
+            logger.d { "Loading embedding model: $embeddingModelPath :: $path" }
             if (embedder != null) {
                 return@withContext true
             }
             embedder = TextEmbedder.createFromFile(
                 context,
-                modelPathProvider.resolvePath(embeddingModelPath)
+                path
             )
-            logger.d { "Embedding model placeholder loaded" }
+            logger.d { "Embedding model loaded" }
             true
         } catch (e: Exception) {
             logger.e(e) { "Exception while loading embedding model" }
@@ -51,10 +52,10 @@ class MediaPipeRAGManager(
     override suspend fun indexDocument(document: RAGDocument) {
         withContext(Dispatchers.IO) {
             try {
-                logger.d { "Indexing document: ${document.id} :: ${document.content}" }
+                logger.d { "Indexing document: ${document.id}" }
 
                 // Split document into chunks
-                val chunks = splitter.split(document.content)
+                val chunks = splitter.splitOnCharacter(document.content)
                 logger.d { "Split into ${chunks.size} chunks" }
 //                val future = chainConfig!!.semanticMemory.getOrNull()
 //                    ?.recordBatchedMemoryItems(ImmutableList.copyOf(chunks))
@@ -67,15 +68,18 @@ class MediaPipeRAGManager(
                             it,
                             ragDocumentChunk = RAGDocumentChunk(
                                 docId = Clock.System.now().toEpochMilliseconds(),
-                                filename = document.id,
-                                chunk = chunk
+                                filename = document.metadata["title"]!!,
+                                chunk = chunk,
+                                chatId = document.metadata["chat_id"]!!
                             )
                         )
                     }
                 }
                 logger.d { "Successfully indexed document ${document.id}" }
             } catch (e: Exception) {
-                logger.e(e) { "Failed to index document: ${document.id}" }
+                logger.e(e) {
+                    "Failed to index document: ${document.id} :: ${e.cause} :: ${e.message}"
+                }
             }
         }
     }
@@ -88,6 +92,7 @@ class MediaPipeRAGManager(
                 val promptEmbedding =
                     embedder!!.embed(query).embeddingResult().embeddings().firstOrNull()
                         ?.floatEmbedding() ?: return@withContext ""
+
                 val retrievedResponse = vectorDBRepository.retrieveText(
                     promptEmbedding.copyOf(768)
                 )
@@ -103,6 +108,7 @@ class MediaPipeRAGManager(
 
     override suspend fun clearIndex() {
         //TODO: implement
+        embedder?.close()
         logger.d { "Cleared RAG index" }
     }
 

@@ -32,5 +32,5 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "GenAI_PG"
-include(":app")
+include("GenAI_PG_KMP:composeApp:app")
 include(":GenAI_PG_KMP:composeApp")

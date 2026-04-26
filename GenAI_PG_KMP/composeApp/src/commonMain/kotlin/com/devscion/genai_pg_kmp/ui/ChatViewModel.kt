@@ -40,6 +40,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -63,6 +64,10 @@ class ChatViewModel(
     private val modelSettings: ModelSettings,
     private val chatRepository: ChatRepository
 ) : ViewModel(), KoinComponent {
+
+    private val ioDispatcher = Dispatchers.IO + SupervisorJob()
+
+    private val responsePlaceHolderText = "Generating..."
     private val logger = Logger.withTag("ChatVM")
 
     val lazyListState = LazyListState()
@@ -121,19 +126,20 @@ class ChatViewModel(
             var lastChatId = chatHistoryState.value.currentChatId
             chatHistoryState.collectLatest { state ->
                 val chatId = state.currentChatId
-                if (chatId != null) {
-                    chatRepository.getMessages(chatId)
-                        .collectLatest { messages ->
+                logger.withTag("ChatHistoryState").d {
+                    "currentChatId: $chatId :: $lastChatId"
+                }
+                if (chatId != null && chatId != lastChatId) {
+                    chatRepository.getMessagesList(chatId)
+                        .let { messages ->
                             chatHistoryState.value.chatMessages.clear()
                             chatHistoryState.value.chatMessages.addAll(messages)
                             logger.d { "collectLatest: ${messages.size} :: $lastChatId - $chatId" }
-                            if (lastChatId != chatId && messages.isNotEmpty()) {
-                                parseAndSetDocuments()
-                                if (ensureEmbeddingsModelLoaded()) {
-                                    embedPendingDocuments()
-                                    resetDocumentsState()
-                                }
-                            }
+//                      TODO: need to show document names in some kind of list design on UI
+//                       if (lastChatId != chatId && messages.isNotEmpty()) {
+//                                parseAndSetDocuments()
+//                                resetDocumentsState()
+//                            }
                             lastChatId = chatId
                         }
                 } else {
@@ -142,12 +148,6 @@ class ChatViewModel(
                 }
             }
         }
-    }
-
-    private fun ensureEmbeddingsModelLoaded(): Boolean {
-        return modelManager != null && modelManagerState.value.selectedEmbeddingModel != null
-                && modelManagerState.value.selectedTokenizer != null
-                && modelManagerState.value.selectedLLM != null
     }
 
     private fun parseAndSetDocuments() {
@@ -175,16 +175,20 @@ class ChatViewModel(
 
     fun onSend() {
         if (isSetupAndInputValid().not()) return
-        llmResponseJob = viewModelScope.launch {
+        llmResponseJob = viewModelScope.launch(ioDispatcher) {
             addUserMessage(documentsState.value.documents.toList())
             val message = inputFieldState.text.toString()
             resetInputField()
             val chatResponseMessageId = chatRepository.sendMessage(
                 chatId = chatHistoryState.value.currentChatId!!,
-                content = "Generating...",
+                content = responsePlaceHolderText,
                 isFromUser = false,
                 attachments = emptyList(),
-            )
+            ).let {
+                chatHistoryState.value.chatMessages.add(it)
+                it.id
+            }
+            logger.d { "onSend: messages count-> ${chatHistoryState.value.chatMessages.size}" }
             modelManagerState.update {
                 it.copy(
                     isGeneratingResponse = true
@@ -204,7 +208,7 @@ class ChatViewModel(
                 .filter { it.type != MediaType.DOCUMENT }
                 .mapNotNull { it.platformFile }
 
-            val flow = if (ragDocuments.isNotEmpty()) {
+            val flow = (if (ragDocuments.isNotEmpty()) {
                 embedPendingDocuments()
                 resetDocumentsState()
                 modelManager?.sendPromptWithRAG(message, images = images)
@@ -222,32 +226,60 @@ class ChatViewModel(
                         message,
                         images.takeIf { it.isNotEmpty() } ?: emptyList())
                 }
-            }
+            })?.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
             val currChatId = chatHistoryState.value.currentChatId!!
-            val responseIndex = getChatMessageIndex(chatResponseMessageId)
+            val responseIndex = getChatResponseMessageIndex(chatResponseMessageId)
             var isLoading = true
-            flow?.collect {
-                val chatMessage = chatHistoryState.value.chatMessages[responseIndex]
-                chatRepository.updateChatMessage(
-                    currChatId, chatResponseMessageId, if (isLoading) it.chunk
-                    else chatMessage.message + it.chunk
-                )
-                logger.d {
-                    "chunk -> ${it.chunk} :: ${it.isDone}"
+            launch {
+                flow?.collect {
+                    if (it == null) return@collect
+                    val chatMessage = chatHistoryState.value.chatMessages[responseIndex]
+//                logger.d {
+//                    "collect-> Model Response-> ${it.chunk} :: $chatMessage :: $isLoading"
+//                }
+                    chatHistoryState.value.chatMessages[responseIndex] = chatMessage.copy(
+                        message = if (isLoading || chatMessage.message.contains(
+                                responsePlaceHolderText,
+                                ignoreCase = true
+                            )
+                        ) it.chunk
+                        else chatMessage.message + it.chunk
+                    )
+//                    logger.d {
+//                        "chunk -> ${it.chunk} :: ${it.isDone}"
+//                    }
+                    if (isLoading) {
+                        isLoading = false
+                    }
+                    if (it.isDone) {
+                        cleanup()
+                    }
                 }
-                if (isLoading) {
-                    isLoading = false
+            }
+            launch {
+                flow?.collect {
+                    if (it == null) return@collect
+                    val chatMessage = chatHistoryState.value.chatMessages[responseIndex]
+                    logger.d { "DB Message Saving-> ${it.chunk}" }
+                    chatRepository.updateChatMessage(
+                        chatId = currChatId,
+                        messageId = chatMessage.id,
+                        content = if (isLoading || chatMessage.message.contains(
+                                responsePlaceHolderText,
+                                ignoreCase = true
+                            )
+                        ) it.chunk
+                        else chatMessage.message + it.chunk
+                    )
+                    lazyListState.scrollBy(Float.MAX_VALUE)
+                    logger.d { "DB Message Saved and Scrolled" }
                 }
-                if (it.isDone) {
-                    cleanup()
-                }
-                lazyListState.scrollBy(Float.MAX_VALUE)
             }
         }
     }
 
-    private suspend fun getChatMessageIndex(chatResponseMessageId: String): Int {
+    private suspend fun getChatResponseMessageIndex(chatResponseMessageId: String): Int {
         while (chatHistoryState.value.chatMessages.indexOfFirst {
                 it.id == chatResponseMessageId
             } == -1) {
@@ -310,11 +342,11 @@ class ChatViewModel(
         return if (platformDetailProvider.getPlatform() == Platform.IOS) {
             true
         } else {
-            validateRag()
+            validateRagSetup()
         }
     }
 
-    private fun validateRag(): Boolean {
+    private fun validateRagSetup(): Boolean {
         // Validation: RAG
         val isRAGNeeded = documentsState.value.documents.any { it.type == MediaType.DOCUMENT }
         if (isRAGNeeded) {
@@ -388,7 +420,9 @@ class ChatViewModel(
             newId
         } else chatId
 
-        chatRepository.sendMessage(ensureChatId, messageContent, true, attachments)
+        chatRepository.sendMessage(ensureChatId, messageContent, true, attachments).let {
+            chatHistoryState.value.chatMessages.add(it)
+        }
     }
 
     fun setPermissionsController(controller: PermissionsController) {
@@ -403,7 +437,7 @@ class ChatViewModel(
                         permissionsController.providePermission(Permission.STORAGE)
                     } catch (e: Exception) {
                         logger.d {
-                            "Permission request failed or rejected: ${e.message} :: ${e.cause}"
+                            "Permission request failed or rejected: $e ${e.message} :: ${e.cause}"
                         }
                     }
                 }
@@ -459,30 +493,28 @@ class ChatViewModel(
     }
 
     fun onEmbeddingModelSelected(model: EmbeddingModel) {
+        if (model.localPath.isNullOrEmpty()) {
+            onPickEmbeddingModel(model)
+            return
+        }
         modelManagerState.update {
             it.copy(
                 selectedEmbeddingModel = model,
                 showEmbeddingSelection = false
             )
         }
-        if (ensureEmbeddingsModelLoaded()) {
-            viewModelScope.launch {
-                embedPendingDocuments()
-            }
-        }
     }
 
     fun onTokenizerSelected(tokenizer: TokenizerModel) {
+        if (tokenizer.localPath.isNullOrEmpty()) {
+            onPickTokenizerModel(tokenizer)
+            return
+        }
         modelManagerState.update {
             it.copy(
                 selectedTokenizer = tokenizer,
                 showTokenizerSelection = false
             )
-        }
-        if (ensureEmbeddingsModelLoaded()) {
-            viewModelScope.launch {
-                embedPendingDocuments()
-            }
         }
     }
 
@@ -495,6 +527,9 @@ class ChatViewModel(
                     val updatedModel = model.copy(localPath = file.pathOrUri)
                     updatedModel.let { modelSettings.savePath(id = it.id, path = file.pathOrUri) }
                     state.copy(
+                        llmList = state.llmList?.map {
+                            if (it.id == updatedModel.id) updatedModel else it
+                        },
                         selectedLLM = updatedModel,
                     )
                 }
@@ -556,12 +591,18 @@ class ChatViewModel(
         viewModelScope.launch {
             val file =
                 filePicker.pickFile(modelManagerState.value.selectedManager!!.supportedRagModelFormats.map { it.format })
+            logger.d { "onPickEmbeddingModel-> $file \n\n\t\t ${modelManagerState.value.selectedEmbeddingModel}" }
             if (file != null) {
                 modelManagerState.update { state ->
                     val updatedModel =
                         embeddingModel.copy(localPath = file.pathOrUri)
                     updatedModel.let { modelSettings.savePath(it.id, it.localPath) }
-                    state.copy(selectedEmbeddingModel = updatedModel)
+                    state.copy(
+                        embeddingModels = state.embeddingModels.map {
+                            if (it.id == updatedModel.id) updatedModel else it
+                        },
+                        selectedEmbeddingModel = updatedModel
+                    )
                 }
             }
         }
@@ -575,7 +616,12 @@ class ChatViewModel(
                 modelManagerState.update { state ->
                     val updatedTokenizer = tokenizerModel.copy(localPath = file.pathOrUri)
                     updatedTokenizer.let { modelSettings.savePath(it.id, it.localPath) }
-                    state.copy(selectedTokenizer = updatedTokenizer)
+                    state.copy(
+                        tokenizerModels = state.tokenizerModels.map {
+                            if (it.id == updatedTokenizer.id) updatedTokenizer else it
+                        },
+                        selectedTokenizer = updatedTokenizer
+                    )
                 }
             }
         }
@@ -731,7 +777,10 @@ class ChatViewModel(
                 val ragDocument = RAGDocument(
                     id = doc.id,
                     content = doc.content,
-                    metadata = mapOf("title" to doc.title)
+                    metadata = mapOf(
+                        "title" to doc.title,
+                        "chat_id" to chatHistoryState.value.currentChatId!!,
+                    )
                 )
 
                 modelManager!!.indexDocument(ragDocument)

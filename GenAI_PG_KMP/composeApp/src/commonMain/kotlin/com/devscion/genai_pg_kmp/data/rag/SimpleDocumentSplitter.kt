@@ -5,7 +5,9 @@ package com.devscion.genai_pg_kmp.data.rag
  * Splits by sentences and paragraphs with configurable overlap.
  */
 class SimpleDocumentSplitter {
-    
+    private val separators: List<String> = listOf("\n\n", "\n", ". ", "! ", "? ", "; ", ", ", " ")
+
+
     /**
      * Split text into chunks of approximately chunkSize characters with overlap.
      *
@@ -20,38 +22,88 @@ class SimpleDocumentSplitter {
         overlap: Int = 50
     ): List<String> {
         if (text.isEmpty()) return emptyList()
-        
+
         // Split by sentences first (basic splitting on period, exclamation, question mark)
         val sentences = text.split(Regex("[.!?]+\\s+"))
             .map { it.trim() }
             .filter { it.isNotEmpty() }
-        
+
         if (sentences.isEmpty()) return listOf(text)
-        
+
         val chunks = mutableListOf<String>()
         var currentChunk = StringBuilder()
-        
+
         for (sentence in sentences) {
             // If adding this sentence would exceed chunk size and current chunk is not empty
             if (currentChunk.length + sentence.length > chunkSize && currentChunk.isNotEmpty()) {
                 chunks.add(currentChunk.toString().trim())
-               
+
                 // Start new chunk with overlap from previous chunk
                 val overlapText = currentChunk.takeLast(overlap).toString()
                 currentChunk = StringBuilder(overlapText)
             }
-            
+
             if (currentChunk.isNotEmpty()) {
                 currentChunk.append(" ")
             }
             currentChunk.append(sentence)
         }
-        
+
         // Add the last chunk if it has content
         if (currentChunk.isNotEmpty()) {
             chunks.add(currentChunk.toString().trim())
         }
-        
+
         return chunks.ifEmpty { listOf(text) }
     }
+
+
+    fun splitOnCharacter(
+        text: String,
+        chunkSize: Int = 500,
+        overlap: Int = 50,
+    ): List<String> {
+        val chunks = mutableListOf<TextChunk>()
+        var start = 0
+
+        while (start < text.length) {
+            val end = minOf(start + chunkSize, text.length)
+
+            // If we're not at the end of the text, find a clean break point
+            val breakPoint = if (end < text.length) {
+                findBreakPoint(text, start, end)
+            } else {
+                end
+            }
+
+            val chunkText = text.substring(start, breakPoint).trim()
+            if (chunkText.isNotEmpty()) {
+                chunks.add(TextChunk(chunkText, start, breakPoint))
+            }
+
+            // Move forward, but back up by overlap amount for context continuity
+            start = maxOf(breakPoint - overlap, start + 1)
+        }
+
+        return chunks.map { it.text }
+    }
+
+    private fun findBreakPoint(text: String, start: Int, end: Int): Int {
+        // Try each separator from most preferred to least
+        for (separator in separators) {
+            val searchStart = (end - (end - start) / 2) // search in the latter half of chunk
+            val idx = text.lastIndexOf(separator, end, ignoreCase = false)
+            if (idx > searchStart) {
+                return idx + separator.length
+            }
+        }
+        // No clean break found, hard cut at end
+        return end
+    }
 }
+
+data class TextChunk(
+    val text: String,
+    val startIndex: Int,
+    val endIndex: Int
+)

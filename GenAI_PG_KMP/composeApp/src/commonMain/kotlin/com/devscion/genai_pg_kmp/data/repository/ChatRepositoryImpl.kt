@@ -6,9 +6,8 @@ import com.devscion.genai_pg_kmp.data.database.dao.MessageDao
 import com.devscion.genai_pg_kmp.data.database.entity.Attachment
 import com.devscion.genai_pg_kmp.data.database.entity.ChatEntity
 import com.devscion.genai_pg_kmp.data.database.entity.MessageEntity
-import com.devscion.genai_pg_kmp.domain.MediaType
+import com.devscion.genai_pg_kmp.data.database.entity.toChatHistoryItem
 import com.devscion.genai_pg_kmp.domain.ModelPathProvider
-import com.devscion.genai_pg_kmp.domain.PlatformFile
 import com.devscion.genai_pg_kmp.domain.model.ChatHistoryItem
 import com.devscion.genai_pg_kmp.domain.repository.ChatRepository
 import com.devscion.genai_pg_kmp.ui.state.DocumentState
@@ -30,46 +29,17 @@ class ChatRepositoryImpl(
     override fun getChats(): Flow<List<ChatEntity>> = chatDao.getAllChats()
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    override fun getMessages(chatId: String): Flow<List<ChatHistoryItem>> =
-        messageDao.getMessages(chatId).mapLatest { messages -> messages.mapToChatHistoryItemList() }
+    override fun getMessages(chatId: String): Flow<List<ChatHistoryItem>> = messageDao
+        .getMessages(chatId)
+        .mapLatest { messages -> messages.mapToChatHistoryItemList() }
 
-    override suspend fun getMessagesList(chatId: String): List<ChatHistoryItem> =
-        messageDao.getMessagesList(chatId).mapToChatHistoryItemList()
+    override suspend fun getMessagesList(chatId: String): List<ChatHistoryItem> = messageDao
+        .getMessagesList(chatId)
+        .mapToChatHistoryItemList()
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private suspend fun List<MessageEntity>.mapToChatHistoryItemList() = map { msg ->
-        val attachments = if (msg.attachments.isNotEmpty()) {
-            msg.attachments.map {
-                logger.d { "GetMessages-> attachment: $it" }
-                DocumentState(
-                    id = it.id,
-                    title = it.title,
-                    type = it.type,
-                    isSent = true,
-                    platformFile = PlatformFile(
-                        name = it.title,
-                        pathOrUri = it.uri,
-                        bytes = if (it.type in listOf(
-                                MediaType.AUDIO,
-                                MediaType.IMAGE
-                            )
-                        ) pathProvider.getContentByteArray(it.uri)
-                        else null,
-                        content = null,
-                        type = it.type,
-                    ), content = if (it.type == MediaType.DOCUMENT) pathProvider.getContentText(
-                        it.uri
-                    ) ?: ""
-                    else ""
-                )
-            }
-        } else emptyList()
-        ChatHistoryItem(
-            id = msg.id,
-            message = msg.content,
-            isLLMResponse = msg.isFromUser.not(),
-            attachments = attachments
-        )
+        msg.toChatHistoryItem(pathProvider)
     }
 
     override suspend fun createChat(title: String): String {
@@ -84,7 +54,7 @@ class ChatRepositoryImpl(
         content: String,
         isFromUser: Boolean,
         attachments: List<DocumentState>
-    ): String {
+    ): ChatHistoryItem {
         val attachmentData = mutableListOf<Attachment>()
         logger.d { "sendMessage: ${attachments.size}" }
         attachments.forEach { attachment ->
@@ -114,7 +84,7 @@ class ChatRepositoryImpl(
             attachments = attachmentData
         )
         messageDao.insertMessage(message)
-        return id
+        return message.toChatHistoryItem(pathProvider)
     }
 
     override suspend fun updateChatMessage(

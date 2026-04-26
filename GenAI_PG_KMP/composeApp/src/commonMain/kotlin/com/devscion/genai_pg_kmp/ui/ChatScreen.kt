@@ -577,8 +577,8 @@ fun ChatHistoryContent(
                         }
                     }
 
-                    if (modelManagerState.showEmbeddingSelection || modelManagerState.showTokenizerSelection) {
-                        Row {
+                    Row {
+                        if (modelManagerState.showEmbeddingSelection) {
                             AnimatedContent(
                                 targetState = modelManagerState.showEmbeddingSelection,
                                 transitionSpec = { EnterTransition.None togetherWith ExitTransition.None }
@@ -612,7 +612,8 @@ fun ChatHistoryContent(
                                     }
                                 }
                             }
-
+                        }
+                        if (modelManagerState.showTokenizerSelection) {
                             AnimatedContent(
                                 targetState = modelManagerState.showTokenizerSelection,
                                 transitionSpec = { EnterTransition.None togetherWith ExitTransition.None }

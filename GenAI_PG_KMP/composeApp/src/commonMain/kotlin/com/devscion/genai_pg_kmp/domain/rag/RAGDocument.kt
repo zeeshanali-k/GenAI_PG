@@ -16,5 +16,6 @@ data class RAGDocument(
 data class RAGDocumentChunk(
     val docId: Long,
     val filename: String,
+    val chatId: String,
     val chunk: String
 )
