@@ -15,7 +15,7 @@ interface ChatRepository {
         content: String,
         isFromUser: Boolean,
         attachments: List<DocumentState> = emptyList()
-    ): String
+    ): ChatHistoryItem
 
     suspend fun updateChatMessage(
         chatId: String,

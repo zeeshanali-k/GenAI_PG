@@ -15,6 +15,62 @@ kotlin {
         namespace = "com.devscion.genai_pg_kmp"
     }
 
+    iosArm64 {                    // physical iPhone/iPad
+        compilations.getByName("main") {
+            cinterops {
+                val sqlitevec by creating {
+                    defFile(project.file("src/iosMain/nativeInterop/cinterop/sqlitevec.def"))
+                    includeDirs(project.file("src/iosMain/nativeInterop/cinterop"))
+                    extraOpts(
+                        "-libraryPath",
+                        project.file("libs/ios/arm64").absolutePath
+                    )
+                }
+            }
+        }
+        binaries.framework {
+            baseName = "composeApp"
+            isStatic = true
+        }
+    }
+
+    iosSimulatorArm64 {           // simulator on Apple Silicon Mac
+        compilations.getByName("main") {
+            cinterops {
+                val sqlitevec by creating {
+                    defFile(project.file("src/iosMain/nativeInterop/cinterop/sqlitevec.def"))
+                    includeDirs(project.file("src/iosMain/nativeInterop/cinterop"))
+                    extraOpts(
+                        "-libraryPath",
+                        project.file("libs/ios/arm64-simulator").absolutePath
+                    )
+                }
+            }
+        }
+        binaries.framework {
+            baseName = "composeApp"
+            isStatic = true
+        }
+    }
+
+    iosX64 {                      // simulator on Intel Mac
+        compilations.getByName("main") {
+            cinterops {
+                val sqlitevec by creating {
+                    defFile(project.file("src/iosMain/nativeInterop/cinterop/sqlitevec.def"))
+                    includeDirs(project.file("src/iosMain/nativeInterop/cinterop"))
+                    extraOpts(
+                        "-libraryPath",
+                        project.file("libs/ios/x64-simulator").absolutePath
+                    )
+                }
+            }
+        }
+        binaries.framework {
+            baseName = "composeApp"
+            isStatic = true
+        }
+    }
 
 
     cocoapods {
@@ -38,7 +94,8 @@ kotlin {
 
             //  MediaPipe
             implementation(libs.mediapipe.tasks.genai)
-            implementation(libs.localagents.rag)
+
+            implementation(libs.tasks.text)
             implementation(libs.tasks.vision)
 //            implementation(libs.tasks.text)
 //            implementation(libs.tasks.audio)

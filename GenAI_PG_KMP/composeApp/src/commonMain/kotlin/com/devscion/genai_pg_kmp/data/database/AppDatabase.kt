@@ -7,6 +7,7 @@ import androidx.room.TypeConverters
 import com.devscion.genai_pg_kmp.data.database.converters.AttachmentListConverter
 import com.devscion.genai_pg_kmp.data.database.dao.ChatDao
 import com.devscion.genai_pg_kmp.data.database.dao.MessageDao
+import com.devscion.genai_pg_kmp.data.database.dao.VectorEmbeddingsDao
 import com.devscion.genai_pg_kmp.data.database.entity.ChatEntity
 import com.devscion.genai_pg_kmp.data.database.entity.MessageEntity
 
@@ -19,6 +20,8 @@ import com.devscion.genai_pg_kmp.data.database.entity.MessageEntity
 abstract class AppDatabase : RoomDatabase() {
     abstract fun chatDao(): ChatDao
     abstract fun messageDao(): MessageDao
+
+    abstract fun vectorEmbeddingsDao(): VectorEmbeddingsDao
 
     companion object {
         const val DATABASE_NAME = "genai_pg_db"

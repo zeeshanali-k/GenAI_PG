@@ -12,3 +12,10 @@ data class RAGDocument(
     val content: String,
     val metadata: Map<String, String> = emptyMap()
 )
+
+data class RAGDocumentChunk(
+    val docId: Long,
+    val filename: String,
+    val chatId: String,
+    val chunk: String
+)

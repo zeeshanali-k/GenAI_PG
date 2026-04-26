@@ -1,39 +1,29 @@
 package com.devscion.genai_pg_kmp.data.rag
 
+import android.content.Context
 import co.touchlab.kermit.Logger
 import com.devscion.genai_pg_kmp.domain.ModelPathProvider
 import com.devscion.genai_pg_kmp.domain.rag.RAGDocument
+import com.devscion.genai_pg_kmp.domain.rag.RAGDocumentChunk
 import com.devscion.genai_pg_kmp.domain.rag.RAGManager
-import com.google.ai.edge.localagents.rag.chains.ChainConfig
-import com.google.ai.edge.localagents.rag.chains.RetrievalChain
-import com.google.ai.edge.localagents.rag.memory.DefaultSemanticTextMemory
-import com.google.ai.edge.localagents.rag.memory.SqliteVectorStore
-import com.google.ai.edge.localagents.rag.models.Embedder
-import com.google.ai.edge.localagents.rag.models.GeckoEmbeddingModel
-import com.google.ai.edge.localagents.rag.retrieval.RetrievalConfig
-import com.google.ai.edge.localagents.rag.retrieval.RetrievalRequest
-import com.google.common.collect.ImmutableList
+import com.devscion.genai_pg_kmp.domain.repository.VectorDBRepository
+import com.google.mediapipe.tasks.text.textembedder.TextEmbedder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.util.Optional
-import kotlin.jvm.optionals.getOrNull
+import kotlin.time.Clock
 
 /**
  * RAG manager implementation for Android MediaPipe.
  */
 class MediaPipeRAGManager(
+    private val context: Context,
     private val modelPathProvider: ModelPathProvider,
+    private val vectorDBRepository: VectorDBRepository,
 ) : RAGManager {
-
-
-    private var chainConfig: ChainConfig<String>? = null
-
-    private var retrievalChain: RetrievalChain<String>? = null
-
-    private var embedder: Embedder<String>? = null
 
     private val splitter = SimpleDocumentSplitter()
     private val logger = Logger.withTag("AIEdgeRAGManager")
+    private var embedder: TextEmbedder? = null
     private var isModelLoaded = false
 
     override suspend fun loadEmbeddingModel(
@@ -41,18 +31,16 @@ class MediaPipeRAGManager(
         tokenizerPath: String,
     ): Boolean = withContext(Dispatchers.IO) {
         try {
-            logger.d { "Loading embedding model: $embeddingModelPath" }
-            if (embedder != null && chainConfig != null && retrievalChain != null) {
+            val path = modelPathProvider.resolvePath(embeddingModelPath)
+            logger.d { "Loading embedding model: $embeddingModelPath :: $path" }
+            if (embedder != null) {
                 return@withContext true
             }
-            embedder = GeckoEmbeddingModel(
-                modelPathProvider.resolvePath(embeddingModelPath),
-                Optional.ofNullable(modelPathProvider.resolvePath(tokenizerPath)),
-                false
+            embedder = TextEmbedder.createFromFile(
+                context,
+                path
             )
-            chainConfig = ChainConfig.create(getSemanticMemory())
-            retrievalChain = RetrievalChain(chainConfig!!)
-            logger.d { "Embedding model placeholder loaded" }
+            logger.d { "Embedding model loaded" }
             true
         } catch (e: Exception) {
             logger.e(e) { "Exception while loading embedding model" }
@@ -61,26 +49,37 @@ class MediaPipeRAGManager(
         }
     }
 
-    private fun getSemanticMemory() = DefaultSemanticTextMemory(
-        // Gecko embedding model dimension is 768
-        SqliteVectorStore(768), embedder
-    )
-
     override suspend fun indexDocument(document: RAGDocument) {
         withContext(Dispatchers.IO) {
             try {
-                logger.d { "Indexing document: ${document.id} :: ${document.content}" }
+                logger.d { "Indexing document: ${document.id}" }
 
                 // Split document into chunks
-                val chunks = splitter.split(document.content)
+                val chunks = splitter.splitOnCharacter(document.content)
                 logger.d { "Split into ${chunks.size} chunks" }
+//                val future = chainConfig!!.semanticMemory.getOrNull()
+//                    ?.recordBatchedMemoryItems(ImmutableList.copyOf(chunks))
+                chunks.forEachIndexed { index, chunk ->
+                    val embedding = embedder!!.embed(chunk).embeddingResult().embeddings()
 
-                val future = chainConfig!!.semanticMemory.getOrNull()
-                    ?.recordBatchedMemoryItems(ImmutableList.copyOf(chunks))
-                future?.get()
+                    logger.d { "Embedding Result chunk $index: ${chunk.length} :: ${embedding?.size}" }
+                    embedding.firstOrNull()?.floatEmbedding()?.copyOf(768)?.let {
+                        vectorDBRepository.addEmbeddings(
+                            it,
+                            ragDocumentChunk = RAGDocumentChunk(
+                                docId = Clock.System.now().toEpochMilliseconds(),
+                                filename = document.metadata["title"]!!,
+                                chunk = chunk,
+                                chatId = document.metadata["chat_id"]!!
+                            )
+                        )
+                    }
+                }
                 logger.d { "Successfully indexed document ${document.id}" }
             } catch (e: Exception) {
-                logger.e(e) { "Failed to index document: ${document.id}" }
+                logger.e(e) {
+                    "Failed to index document: ${document.id} :: ${e.cause} :: ${e.message}"
+                }
             }
         }
     }
@@ -90,25 +89,17 @@ class MediaPipeRAGManager(
             try {
                 logger.d { "Retrieving context for query (topK=$topK)" }
 
-                val retrievedResponse = retrievalChain!!(
-                    RetrievalRequest.create(
-                        query,
-                        RetrievalConfig.create(topK, RetrievalConfig.TaskType.RETRIEVAL_QUERY)
-                    )
-                ).get()
+                val promptEmbedding =
+                    embedder!!.embed(query).embeddingResult().embeddings().firstOrNull()
+                        ?.floatEmbedding() ?: return@withContext ""
 
-                logger.d { "Retrieved ${retrievedResponse.entities.size} results" }
+                val retrievedResponse = vectorDBRepository.retrieveText(
+                    promptEmbedding.copyOf(768)
+                )
 
-                if (retrievedResponse.entities.isEmpty()) {
-                    ""
-                } else {
-                    retrievedResponse.entities.mapIndexed { index, chunk ->
-                        logger.d {
-                            "retrievedResponse-> $index ${chunk.data}"
-                        }
-                        "[Context ${index + 1}]\n${chunk.data}"
-                    }.joinToString("\n\n")
-                }
+                logger.d { "Retrieved $retrievedResponse" }
+                if (retrievedResponse.isEmpty()) ""
+                else "[Context:\n$retrievedResponse"
             } catch (e: Exception) {
                 logger.e(e) { "Failed to retrieve context" }
                 ""
@@ -116,10 +107,8 @@ class MediaPipeRAGManager(
         }
 
     override suspend fun clearIndex() {
-        chainConfig = chainConfig?.toBuilder()?.setSemanticMemory(
-            getSemanticMemory()
-        )?.build()
-        //TODO: test
+        //TODO: implement
+        embedder?.close()
         logger.d { "Cleared RAG index" }
     }
 

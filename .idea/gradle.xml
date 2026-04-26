@@ -23,7 +23,7 @@
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/GenAI_PG_KMP" />
             <option value="$PROJECT_DIR$/GenAI_PG_KMP/composeApp" />
-            <option value="$PROJECT_DIR$/app" />
+            <option value="$PROJECT_DIR$/GenAI_PG_KMP/composeApp/app" />
             <option value="$PROJECT_DIR$/build-config" />
           </set>
         </option>

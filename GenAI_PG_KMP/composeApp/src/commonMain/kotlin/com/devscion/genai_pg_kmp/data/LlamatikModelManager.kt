@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-//TODO: test on physical device and improve rag prompt to response regardless of retrieved rag context
+//TODO: test on physical device and improve rag prompt to respond regardless of retrieved rag context
 class LlamatikModelManager(
     override var ragManager: RAGManager
 ) : LLMRuntimeManager {

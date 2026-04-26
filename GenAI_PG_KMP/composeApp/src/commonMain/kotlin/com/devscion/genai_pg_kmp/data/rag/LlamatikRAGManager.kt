@@ -27,7 +27,7 @@ class LlamatikRAGManager : RAGManager {
             if (isModelLoaded) return@withContext true
             try {
                 logger.d { "Loading embedding model: $embeddingModelPath" }
-                isModelLoaded = LlamaBridge.initModel(embeddingModelPath)
+                isModelLoaded = LlamaBridge.initGenerateModel(embeddingModelPath)
                 if (isModelLoaded) {
                     logger.d { "Embedding model loaded successfully" }
                 } else {
