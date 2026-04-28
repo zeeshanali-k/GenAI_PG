@@ -6,6 +6,7 @@ import androidx.room.PrimaryKey
 import com.devscion.genai_pg_kmp.domain.MediaType
 import com.devscion.genai_pg_kmp.domain.ModelPathProvider
 import com.devscion.genai_pg_kmp.domain.PlatformFile
+import com.devscion.genai_pg_kmp.domain.document.DocumentTextParser
 import com.devscion.genai_pg_kmp.domain.model.ChatHistoryItem
 import com.devscion.genai_pg_kmp.ui.state.DocumentState
 import kotlin.time.Clock
@@ -31,7 +32,10 @@ data class MessageEntity(
     val attachments: List<Attachment>,
 )
 
-suspend fun MessageEntity.toChatHistoryItem(pathProvider: ModelPathProvider): ChatHistoryItem {
+suspend fun MessageEntity.toChatHistoryItem(
+    pathProvider: ModelPathProvider,
+    documentTextParser: DocumentTextParser,
+): ChatHistoryItem {
     val msg = this
     val attachments = if (msg.attachments.isNotEmpty()) {
         msg.attachments.map {
@@ -51,9 +55,9 @@ suspend fun MessageEntity.toChatHistoryItem(pathProvider: ModelPathProvider): Ch
                     else null,
                     content = null,
                     type = it.type,
-                ), content = if (it.type == MediaType.DOCUMENT) pathProvider.getContentText(
-                    it.uri
-                ) ?: ""
+                ), content = if (it.type == MediaType.DOCUMENT) {
+                    documentTextParser.parse(it.uri, it.title) ?: ""
+                }
                 else ""
             )
         }

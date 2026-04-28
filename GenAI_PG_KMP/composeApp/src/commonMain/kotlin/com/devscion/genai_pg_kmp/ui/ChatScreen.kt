@@ -72,6 +72,7 @@ import com.devscion.genai_pg_kmp.domain.model.Model
 import com.devscion.genai_pg_kmp.domain.model.ModelManagerOption
 import com.devscion.genai_pg_kmp.domain.model.ModelManagerRuntime
 import com.devscion.genai_pg_kmp.domain.model.TokenizerModel
+import com.devscion.genai_pg_kmp.responseformatter.FormattedResponseContent
 import com.devscion.genai_pg_kmp.ui.components.AttachedDocumentChip
 import com.devscion.genai_pg_kmp.ui.components.ChatBubble
 import com.devscion.genai_pg_kmp.ui.components.ChatDrawerContent
@@ -463,7 +464,11 @@ fun ChatHistoryContent(
                                             }
                                         }
                                         if (item.message.isNotEmpty()) {
-                                            Text(item.message)
+                                            if (item.isLLMResponse) {
+                                                FormattedResponseContent(item.message)
+                                            } else {
+                                                Text(item.message)
+                                            }
                                         }
                                     }
                                 }

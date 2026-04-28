@@ -17,7 +17,7 @@ class LiteRT_LMRagManager : RAGManager {
 
     }
 
-    override suspend fun retrieveContext(query: String, topK: Int): String {
+    override suspend fun retrieveContext(query: String, chatId: String, topK: Int): String {
         return ""
     }
 

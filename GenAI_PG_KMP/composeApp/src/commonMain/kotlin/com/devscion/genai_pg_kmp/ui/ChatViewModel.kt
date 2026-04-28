@@ -2,7 +2,6 @@
 
 package com.devscion.genai_pg_kmp.ui
 
-import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.lifecycle.ViewModel
@@ -15,6 +14,9 @@ import com.devscion.genai_pg_kmp.domain.ModelPathProvider
 import com.devscion.genai_pg_kmp.domain.ModelSettings
 import com.devscion.genai_pg_kmp.domain.PlatformDetailProvider
 import com.devscion.genai_pg_kmp.domain.PlatformFile
+import com.devscion.genai_pg_kmp.domain.document.DocumentTextParser
+import com.devscion.genai_pg_kmp.domain.model.ChatHistoryItem
+import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
 import com.devscion.genai_pg_kmp.domain.model.EmbeddingModel
 import com.devscion.genai_pg_kmp.domain.model.Model
 import com.devscion.genai_pg_kmp.domain.model.ModelManagerOption
@@ -26,6 +28,8 @@ import com.devscion.genai_pg_kmp.domain.model.androidOptions
 import com.devscion.genai_pg_kmp.domain.model.iOSOptions
 import com.devscion.genai_pg_kmp.domain.rag.RAGDocument
 import com.devscion.genai_pg_kmp.domain.repository.ChatRepository
+import com.devscion.genai_pg_kmp.domain.repository.VectorDBRepository
+import com.devscion.genai_pg_kmp.responseformatter.FormattedResponseParser
 import com.devscion.genai_pg_kmp.ui.state.ChatHistory
 import com.devscion.genai_pg_kmp.ui.state.ChatUIState
 import com.devscion.genai_pg_kmp.ui.state.DocumentState
@@ -33,15 +37,20 @@ import com.devscion.genai_pg_kmp.ui.state.EmbeddingProgress
 import com.devscion.genai_pg_kmp.ui.state.ModelManagerError
 import com.devscion.genai_pg_kmp.ui.state.ModelManagerState
 import com.devscion.genai_pg_kmp.ui.state.RAGDocumentsState
+import com.devscion.genai_pg_kmp.utils.Constants.CHAT_ID_METADATA_KEY
+import com.devscion.genai_pg_kmp.utils.Constants.TITLE_METADATA_KEY
 import dev.icerock.moko.permissions.Permission
 import dev.icerock.moko.permissions.PermissionsController
 import dev.icerock.moko.permissions.storage.STORAGE
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.collectLatest
@@ -62,7 +71,9 @@ class ChatViewModel(
     private val filePicker: FilePicker,
     private val modelPathProvider: ModelPathProvider,
     private val modelSettings: ModelSettings,
-    private val chatRepository: ChatRepository
+    private val chatRepository: ChatRepository,
+    private val documentTextParser: DocumentTextParser,
+    private val vectorDBRepository: VectorDBRepository,
 ) : ViewModel(), KoinComponent {
 
     private val ioDispatcher = Dispatchers.IO + SupervisorJob()
@@ -135,7 +146,7 @@ class ChatViewModel(
                             chatHistoryState.value.chatMessages.clear()
                             chatHistoryState.value.chatMessages.addAll(messages)
                             logger.d { "collectLatest: ${messages.size} :: $lastChatId - $chatId" }
-//                      TODO: need to show document names in some kind of list design on UI
+//                      TODO: need to show document names for selected chat in some kind of list design on UI
 //                       if (lastChatId != chatId && messages.isNotEmpty()) {
 //                                parseAndSetDocuments()
 //                                resetDocumentsState()
@@ -150,23 +161,23 @@ class ChatViewModel(
         }
     }
 
-    private fun parseAndSetDocuments() {
-        val docs = mutableListOf<DocumentState>()
-        chatHistoryState.value.chatMessages.forEach {
-            if (it.attachments.isNotEmpty()) {
-                logger.d {
-                    "parseAndSetDocs: ${it.attachments}"
-                }
-            }
-            docs.addAll(it.attachments)
-        }
-        documentsState.update {
-            it.copy(
-                documents = docs,
-                isEmbedding = false,
-            )
-        }
-    }
+//    private fun parseAndSetDocuments() {
+//        val docs = mutableListOf<DocumentState>()
+//        chatHistoryState.value.chatMessages.forEach {
+//            if (it.attachments.isNotEmpty()) {
+//                logger.d {
+//                    "parseAndSetDocs: ${it.attachments}"
+//                }
+//            }
+//            docs.addAll(it.attachments)
+//        }
+//        documentsState.update {
+//            it.copy(
+//                documents = docs,
+//                isEmbedding = false,
+//            )
+//        }
+//    }
 
     private fun loadModelManagerOptions() = when (platformDetailProvider.getPlatform()) {
         Platform.ANDROID -> androidOptions()
@@ -175,120 +186,66 @@ class ChatViewModel(
 
     fun onSend() {
         if (isSetupAndInputValid().not()) return
-        llmResponseJob = viewModelScope.launch(ioDispatcher) {
-            addUserMessage(documentsState.value.documents.toList())
-            val message = inputFieldState.text.toString()
-            resetInputField()
-            val chatResponseMessageId = chatRepository.sendMessage(
-                chatId = chatHistoryState.value.currentChatId!!,
-                content = responsePlaceHolderText,
-                isFromUser = false,
-                attachments = emptyList(),
-            ).let {
-                chatHistoryState.value.chatMessages.add(it)
-                it.id
-            }
-            logger.d { "onSend: messages count-> ${chatHistoryState.value.chatMessages.size}" }
-            modelManagerState.update {
-                it.copy(
-                    isGeneratingResponse = true
-                )
-            }
+        val message = inputFieldState.text.toString()
+        val attachments = documentsState.value.documents.toList()
 
-            // Filter documents for RAG (Text only)
-            documentsState.update {
-                it.copy(
-                    documents = it.documents.map { it.copy(isSent = true) }
-                )
-            }
-            val ragDocuments =
-                documentsState.value.documents.filter { it.type == MediaType.DOCUMENT }
-            // Filter attachments for Multimodal (Image, Audio)
-            val images = documentsState.value.documents
-                .filter { it.type != MediaType.DOCUMENT }
-                .mapNotNull { it.platformFile }
+        llmResponseJob = viewModelScope.launch {
+            val activeJob = coroutineContext[Job]
+            modelManagerState.update { it.copy(isGeneratingResponse = true) }
 
-            val flow = (if (ragDocuments.isNotEmpty()) {
-                embedPendingDocuments()
-                resetDocumentsState()
-                modelManager?.sendPromptWithRAG(message, images = images)
-            } else {
-                resetDocumentsState()
-                val isRAGPrompt = chatHistoryState.value.chatMessages.any {
-                    it.attachments.isNotEmpty() && it.attachments.any { attach ->
-                        attach.type == MediaType.DOCUMENT
-                    }
-                }
-                if (isRAGPrompt) {
-                    modelManager?.sendPromptWithRAG(message, images = images)
-                } else {
-                    modelManager?.sendPromptToLLM(
-                        message,
-                        images.takeIf { it.isNotEmpty() } ?: emptyList())
-                }
-            })?.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+            try {
+                val chatId = addUserMessage(message, attachments)
+                resetInputField()
 
-            val currChatId = chatHistoryState.value.currentChatId!!
-            val responseIndex = getChatResponseMessageIndex(chatResponseMessageId)
-            var isLoading = true
-            launch {
-                flow?.collect {
-                    if (it == null) return@collect
-                    val chatMessage = chatHistoryState.value.chatMessages[responseIndex]
-//                logger.d {
-//                    "collect-> Model Response-> ${it.chunk} :: $chatMessage :: $isLoading"
-//                }
-                    chatHistoryState.value.chatMessages[responseIndex] = chatMessage.copy(
-                        message = if (isLoading || chatMessage.message.contains(
-                                responsePlaceHolderText,
-                                ignoreCase = true
-                            )
-                        ) it.chunk
-                        else chatMessage.message + it.chunk
+                val responseMessage = withContext(ioDispatcher) {
+                    chatRepository.sendMessage(
+                        chatId = chatId,
+                        content = responsePlaceHolderText,
+                        isFromUser = false,
+                        attachments = emptyList(),
                     )
-//                    logger.d {
-//                        "chunk -> ${it.chunk} :: ${it.isDone}"
-//                    }
-                    if (isLoading) {
-                        isLoading = false
-                    }
-                    if (it.isDone) {
-                        cleanup()
-                    }
                 }
-            }
-            launch {
-                flow?.collect {
-                    if (it == null) return@collect
-                    val chatMessage = chatHistoryState.value.chatMessages[responseIndex]
-                    logger.d { "DB Message Saving-> ${it.chunk}" }
-                    chatRepository.updateChatMessage(
-                        chatId = currChatId,
-                        messageId = chatMessage.id,
-                        content = if (isLoading || chatMessage.message.contains(
-                                responsePlaceHolderText,
-                                ignoreCase = true
-                            )
-                        ) it.chunk
-                        else chatMessage.message + it.chunk
-                    )
-                    lazyListState.scrollBy(Float.MAX_VALUE)
-                    logger.d { "DB Message Saved and Scrolled" }
-                }
-            }
-        }
-    }
+                addVisibleMessage(chatId, responseMessage)
 
-    private suspend fun getChatResponseMessageIndex(chatResponseMessageId: String): Int {
-        while (chatHistoryState.value.chatMessages.indexOfFirst {
-                it.id == chatResponseMessageId
-            } == -1) {
-            delay(50)
+                documentsState.update { state ->
+                    state.copy(
+                        documents = state.documents.map { it.copy(isSent = true) }
+                    )
+                }
+
+                val currentDocuments = documentsState.value.documents.toList()
+                val ragDocuments = currentDocuments.filter { it.type == MediaType.DOCUMENT }
+                val images = currentDocuments
+                    .filter { it.type != MediaType.DOCUMENT }
+                    .mapNotNull { it.platformFile }
+
+                val responseFlow = createResponseFlow(
+                    message = message,
+                    ragDocuments = ragDocuments,
+                    images = images
+                ) ?: return@launch
+
+                collectModelResponse(
+                    chatId = chatId,
+                    responseMessageId = responseMessage.id,
+                    flow = responseFlow
+                )
+            } catch (cancelled: CancellationException) {
+                logger.d { "onSend cancelled" }
+                throw cancelled
+            } catch (e: Exception) {
+                logger.e(e) { "Failed to handle model response" }
+            } finally {
+                if (llmResponseJob == activeJob) {
+                    llmResponseJob = null
+                }
+                modelManagerState.update {
+                    it.copy(
+                        isGeneratingResponse = false
+                    )
+                }
+            }
         }
-        val responseIndex = chatHistoryState.value.chatMessages.indexOfFirst {
-            it.id == chatResponseMessageId
-        }
-        return responseIndex
     }
 
     private fun isSetupAndInputValid(): Boolean {
@@ -386,20 +343,47 @@ class ChatViewModel(
         }
     }
 
-    private fun cleanup() {
-        llmResponseJob?.cancel()
+    private fun cancelActiveResponse() {
+        val activeJob = llmResponseJob ?: return
         llmResponseJob = null
+        activeJob.cancel()
         modelManagerState.update {
             it.copy(
                 isGeneratingResponse = false
             )
         }
+        viewModelScope.launch(ioDispatcher) {
+            runCatching {
+                modelManager?.stopResponseGeneration()
+            }.onFailure { error ->
+                logger.e(error) { "Failed to stop response generation" }
+            }
+        }
     }
 
     fun stopGeneratingResponse() {
         viewModelScope.launch {
-            modelManager!!.stopResponseGeneration()
+            cancelActiveResponseAndWait()
         }
+    }
+
+    private suspend fun cancelActiveResponseAndWait() {
+        val activeJob = llmResponseJob ?: return
+        llmResponseJob = null
+        activeJob.cancel()
+        modelManagerState.update {
+            it.copy(
+                isGeneratingResponse = false
+            )
+        }
+        runCatching {
+            withContext(ioDispatcher) {
+                modelManager?.stopResponseGeneration()
+            }
+        }.onFailure { error ->
+            logger.e(error) { "Failed to stop response generation" }
+        }
+        runCatching { activeJob.join() }
     }
 
     private fun resetInputField() {
@@ -408,21 +392,27 @@ class ChatViewModel(
         }
     }
 
-    private suspend fun addUserMessage(attachments: List<DocumentState>) {
-        val messageContent = inputFieldState.text.toString()
-
+    private suspend fun addUserMessage(
+        messageContent: String,
+        attachments: List<DocumentState>
+    ): String {
         val chatId = chatHistoryState.value.currentChatId
         val ensureChatId = if (chatId == null) {
-            val newId = chatRepository.createChat(messageContent.take(20))
+            val newId = withContext(ioDispatcher) {
+                chatRepository.createChat(messageContent.take(20))
+            }
             chatHistoryState.update {
                 it.copy(currentChatId = newId)
             }
             newId
         } else chatId
 
-        chatRepository.sendMessage(ensureChatId, messageContent, true, attachments).let {
-            chatHistoryState.value.chatMessages.add(it)
+        withContext(ioDispatcher) {
+            chatRepository.sendMessage(ensureChatId, messageContent, true, attachments)
+        }.let {
+            addVisibleMessage(ensureChatId, it)
         }
+        return ensureChatId
     }
 
     fun setPermissionsController(controller: PermissionsController) {
@@ -447,7 +437,10 @@ class ChatViewModel(
                         it.content == file.content || it.platformFile?.pathOrUri == file.pathOrUri
                     } == null) {
                     when (file.type) {
-                        MediaType.DOCUMENT -> attachDocument(file)
+                        MediaType.DOCUMENT -> attachDocument(
+                            parseDocumentAttachment(file) ?: return@launch
+                        )
+
                         MediaType.IMAGE -> attachDocument(file)
                         else -> {}
                     }
@@ -669,7 +662,7 @@ class ChatViewModel(
     }
 
     override fun onCleared() {
-        cleanup()
+        cancelActiveResponse()
         modelManager?.close()
     }
 
@@ -702,20 +695,36 @@ class ChatViewModel(
         }
     }
 
+    private suspend fun parseDocumentAttachment(file: PlatformFile): PlatformFile? {
+        val parsedContent = documentTextParser.parse(file)
+        if (parsedContent.isNullOrBlank()) {
+            modelManagerState.update {
+                it.copy(
+                    ragError = "Couldn't extract readable text from ${file.name}. Try PDF, CSV, TSV, TXT, Markdown, JSON, XML, HTML, YAML, or log files."
+                )
+            }
+            return null
+        }
+        modelManagerState.update { it.copy(ragError = null) }
+        return file.copy(content = parsedContent)
+    }
+
     fun removeDocument(documentId: String) {
         val document = documentsState.value.documents.firstOrNull { it.id == documentId }
         documentsState.update {
             it.copy(documents = it.documents.filter { doc -> doc.id != documentId })
         }
         document?.takeIf { it.isEmbedded && it.type == MediaType.DOCUMENT }?.let {
-            viewModelScope.launch {
-                embedPendingDocuments(isReEmbedding = true)
-            }
+//           TODO: remove the embedding of this chat's removed document in db
+            //            viewModelScope.launch {
+//                embedPendingDocuments(isReEmbedding = true)
+//            }
         }
     }
 
     fun setChatId(chatId: String) {
         if (chatHistoryState.value.currentChatId == chatId) return
+        cancelActiveResponse()
         chatHistoryState.update {
             it.copy(currentChatId = chatId)
         }
@@ -728,7 +737,10 @@ class ChatViewModel(
             return
         }
         viewModelScope.launch {
-            val newChatId = chatRepository.createChat("New Chat ${Uuid.random()}")
+            cancelActiveResponseAndWait()
+            val newChatId = withContext(ioDispatcher) {
+                chatRepository.createChat("New Chat ${Uuid.random()}")
+            }
             setChatId(newChatId)
             modelManager?.clearIndexedDocuments()
         }
@@ -736,12 +748,15 @@ class ChatViewModel(
 
     fun deleteChat(chatId: String) {
         viewModelScope.launch {
-            chatRepository.deleteChat(chatId)
             val currentChatId = chatHistoryState.value.currentChatId
             if (currentChatId == chatId) {
+                cancelActiveResponseAndWait()
                 chatHistoryState.update {
                     it.copy(currentChatId = null)
                 }
+            }
+            withContext(ioDispatcher) {
+                chatRepository.deleteChat(chatId)
             }
         }
     }
@@ -767,23 +782,23 @@ class ChatViewModel(
         }
 
         try {
-            modelManagerState.value.let { state ->
-                modelManager!!.loadEmbeddingModel(
-                    state.selectedEmbeddingModel!!.localPath!!,
-                    state.selectedTokenizer!!.localPath!!,
-                )
-            }
             pendingDocs.forEachIndexed { index, doc ->
                 val ragDocument = RAGDocument(
                     id = doc.id,
                     content = doc.content,
                     metadata = mapOf(
-                        "title" to doc.title,
-                        "chat_id" to chatHistoryState.value.currentChatId!!,
+                        TITLE_METADATA_KEY to doc.title,
+                        CHAT_ID_METADATA_KEY to chatHistoryState.value.currentChatId!!,
                     )
                 )
 
-                modelManager!!.indexDocument(ragDocument)
+                if (vectorDBRepository.hasChatDocumentEmbeddings(
+                        chatHistoryState.value.currentChatId!!,
+                        doc.title,
+                    ).not()
+                ) {
+                    modelManager!!.indexDocument(ragDocument)
+                }
 
                 documentsState.update { state ->
                     state.copy(
@@ -804,6 +819,106 @@ class ChatViewModel(
                 )
             }
         }
+    }
+
+    private suspend fun setupRAGModels() {
+        modelManagerState.value.let { state ->
+            modelManager!!.loadEmbeddingModel(
+                state.selectedEmbeddingModel!!.localPath!!,
+                state.selectedTokenizer!!.localPath!!,
+            )
+        }
+    }
+
+    private suspend fun createResponseFlow(
+        message: String,
+        ragDocuments: List<DocumentState>,
+        images: List<PlatformFile>
+    ): Flow<ChunkedModelResponse>? {
+        val manager = modelManager ?: return null
+        val chatId = chatHistoryState.value.currentChatId ?: return null
+
+        setupRAGModels()
+        if (ragDocuments.isNotEmpty()) {
+            embedPendingDocuments()
+        }
+        resetDocumentsState()
+        return manager.sendPromptWithRAG(message, chatId = chatId, images = images)
+    }
+
+    private suspend fun collectModelResponse(
+        chatId: String,
+        responseMessageId: String,
+        flow: Flow<ChunkedModelResponse>
+    ) {
+        val responseBuilder = StringBuilder()
+        var latestResponseText: String? = null
+        var persistedResponseText: String? = null
+        val persistenceChannel = Channel<String>(capacity = Channel.CONFLATED)
+        val dbWriterJob = viewModelScope.launch(ioDispatcher) {
+            for (content in persistenceChannel) {
+                if (content == persistedResponseText) continue
+                chatRepository.updateChatMessage(
+                    chatId = chatId,
+                    messageId = responseMessageId,
+                    content = content
+                )
+                persistedResponseText = content
+            }
+        }
+
+        try {
+            flow.collect { response ->
+                if (response.chunk.isNotEmpty()) {
+                    responseBuilder.append(response.chunk)
+                }
+
+                val fullResponse = FormattedResponseParser.normalize(responseBuilder.toString())
+                if (fullResponse == latestResponseText) {
+                    return@collect
+                }
+
+                updateVisibleMessage(chatId, responseMessageId, fullResponse)
+                latestResponseText = fullResponse
+                persistenceChannel.trySend(fullResponse)
+            }
+        } finally {
+            if (latestResponseText == null) {
+                updateVisibleMessage(chatId, responseMessageId, "")
+                latestResponseText = ""
+                persistenceChannel.trySend("")
+            }
+
+            persistenceChannel.close()
+            withContext(NonCancellable) {
+                dbWriterJob.join()
+            }
+
+            if (persistedResponseText != latestResponseText) {
+                withContext(NonCancellable + ioDispatcher) {
+                    chatRepository.updateChatMessage(
+                        chatId = chatId,
+                        messageId = responseMessageId,
+                        content = latestResponseText.orEmpty()
+                    )
+                }
+                persistedResponseText = latestResponseText
+            }
+        }
+    }
+
+    private fun addVisibleMessage(chatId: String, message: ChatHistoryItem) {
+        if (chatHistoryState.value.currentChatId != chatId) return
+        chatHistoryState.value.chatMessages.add(message)
+    }
+
+    private fun updateVisibleMessage(chatId: String, messageId: String, content: String) {
+        if (chatHistoryState.value.currentChatId != chatId) return
+        val index = chatHistoryState.value.chatMessages.indexOfFirst { it.id == messageId }
+        if (index == -1) return
+        val currentMessage = chatHistoryState.value.chatMessages[index]
+        if (currentMessage.message == content) return
+        chatHistoryState.value.chatMessages[index] = currentMessage.copy(message = content)
     }
 
 }

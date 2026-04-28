@@ -16,6 +16,9 @@ kotlin {
     }
 
     iosArm64 {                    // physical iPhone/iPad
+        binaries.all {
+            linkerOpts("-framework", "PDFKit")
+        }
         compilations.getByName("main") {
             cinterops {
                 val sqlitevec by creating {
@@ -35,6 +38,9 @@ kotlin {
     }
 
     iosSimulatorArm64 {           // simulator on Apple Silicon Mac
+        binaries.all {
+            linkerOpts("-framework", "PDFKit")
+        }
         compilations.getByName("main") {
             cinterops {
                 val sqlitevec by creating {
@@ -54,6 +60,9 @@ kotlin {
     }
 
     iosX64 {                      // simulator on Intel Mac
+        binaries.all {
+            linkerOpts("-framework", "PDFKit")
+        }
         compilations.getByName("main") {
             cinterops {
                 val sqlitevec by creating {
@@ -89,6 +98,7 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.koin.android)
             implementation(libs.koin.compose)
+            implementation(libs.pdfbox.android)
 
             /** Gen AI Libraries **/
 
@@ -107,6 +117,7 @@ kotlin {
             /** Gen AI Libraries **/
         }
         commonMain.dependencies {
+            implementation(project(":GenAI_PG_KMP:responseFormatter"))
 
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
@@ -128,9 +139,9 @@ kotlin {
             implementation(libs.room.runtime)
             implementation(libs.sqlite.bundled)
         }
-//        commonTest.dependencies {
-//            implementation(libs.kotlin.test)
-//        }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+        }
     }
 }
 

@@ -8,10 +8,7 @@ import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import platform.Foundation.NSString
 import platform.Foundation.NSURL
-import platform.Foundation.NSUTF8StringEncoding
-import platform.Foundation.stringWithContentsOfURL
 import platform.UIKit.UIApplication
 import platform.UIKit.UIDocumentPickerDelegateProtocol
 import platform.UIKit.UIDocumentPickerMode
@@ -90,17 +87,11 @@ class iOSFilePicker : FilePicker {
                                     )
                                 }
                             } else {
-                                val content = NSString.stringWithContentsOfURL(
-                                    url,
-                                    encoding = NSUTF8StringEncoding,
-                                    error = null
-                                ) ?: ""
-                                println("iOSFIlePicker: pickMedia-> $content")
                                 if (continuation.isActive) {
                                     continuation.resume(
                                         PlatformFile(
                                             name,
-                                            content,
+                                            null,
                                             path,
                                             MediaType.DOCUMENT
                                         )

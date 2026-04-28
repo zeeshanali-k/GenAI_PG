@@ -43,12 +43,17 @@ interface LLMRuntimeManager {
     suspend fun sendPromptWithRAG(
         inputPrompt: String,
         topK: Int = 3,
+        chatId: String,
         images: List<PlatformFile>? = null
     ): Flow<ChunkedModelResponse> {
         Logger.d("LLMModelManager") {
             "sendPromptWithRAG: $inputPrompt"
         }
-        val context = ragManager.retrieveContext(inputPrompt, topK)
+        val context = ragManager.retrieveContext(
+            query = inputPrompt,
+            chatId = chatId,
+            topK = topK
+        )
         Logger.d("LLMModelManager") {
             "RAG Context: $context"
         }

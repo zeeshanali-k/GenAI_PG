@@ -31,7 +31,7 @@ interface RAGManager {
      * @param topK Number of top results to return (default: 3)
      * @return Retrieved context as a formatted string
      */
-    suspend fun retrieveContext(query: String, topK: Int = 3): String
+    suspend fun retrieveContext(query: String, chatId: String, topK: Int = 3): String
 
     /**
      * Clear all indexed documents from the store.

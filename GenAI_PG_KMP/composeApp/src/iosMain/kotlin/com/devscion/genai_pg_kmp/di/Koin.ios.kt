@@ -1,6 +1,7 @@
 package com.devscion.genai_pg_kmp.di
 
 import com.devscion.genai_pg_kmp.data.database.DatabaseBuilder
+import com.devscion.genai_pg_kmp.data.document.IOSPdfTextExtractor
 import com.devscion.genai_pg_kmp.data.iOSFilePicker
 import com.devscion.genai_pg_kmp.data.iOSModelSettings
 import com.devscion.genai_pg_kmp.data.model_managers.LiteRT_LMModelManager
@@ -13,6 +14,7 @@ import com.devscion.genai_pg_kmp.domain.ModelPathProviderIOS
 import com.devscion.genai_pg_kmp.domain.ModelSettings
 import com.devscion.genai_pg_kmp.domain.PlatformDetailProvider
 import com.devscion.genai_pg_kmp.domain.PlatformDetailProviderIOS
+import com.devscion.genai_pg_kmp.domain.document.PdfTextExtractor
 import com.devscion.genai_pg_kmp.domain.model.ModelManagerRuntime
 import com.devscion.genai_pg_kmp.domain.rag.RAGManager
 import org.koin.core.module.Module
@@ -41,6 +43,7 @@ actual val platformKoinModule: Module = module {
     } bind LLMRuntimeManager::class
 
     factoryOf(::ModelPathProviderIOS) bind ModelPathProvider::class
+    singleOf(::IOSPdfTextExtractor) bind PdfTextExtractor::class
 
     singleOf(::PlatformDetailProviderIOS) bind PlatformDetailProvider::class
 

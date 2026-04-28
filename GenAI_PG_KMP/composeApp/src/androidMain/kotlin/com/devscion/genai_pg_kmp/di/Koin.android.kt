@@ -3,6 +3,7 @@ package com.devscion.genai_pg_kmp.di
 import com.devscion.genai_pg_kmp.data.AndroidFilePicker
 import com.devscion.genai_pg_kmp.data.AndroidModelSettings
 import com.devscion.genai_pg_kmp.data.database.DatabaseBuilder
+import com.devscion.genai_pg_kmp.data.document.AndroidPdfTextExtractor
 import com.devscion.genai_pg_kmp.data.model_managers.LiteRTLM_ModelManager
 import com.devscion.genai_pg_kmp.data.model_managers.MediaPipeModelManager
 import com.devscion.genai_pg_kmp.data.rag.MediaPipeRAGManager
@@ -13,6 +14,7 @@ import com.devscion.genai_pg_kmp.domain.ModelPathProviderAndroid
 import com.devscion.genai_pg_kmp.domain.ModelSettings
 import com.devscion.genai_pg_kmp.domain.PlatformDetailProvider
 import com.devscion.genai_pg_kmp.domain.PlatformDetailProviderAndroid
+import com.devscion.genai_pg_kmp.domain.document.PdfTextExtractor
 import com.devscion.genai_pg_kmp.domain.model.ModelManagerRuntime
 import com.devscion.genai_pg_kmp.domain.rag.RAGManager
 import org.koin.android.ext.koin.androidContext
@@ -43,6 +45,7 @@ actual val platformKoinModule: Module = module {
 
     //Misc
     factoryOf(::ModelPathProviderAndroid) bind ModelPathProvider::class
+    singleOf(::AndroidPdfTextExtractor) bind PdfTextExtractor::class
     singleOf(::PlatformDetailProviderAndroid) bind PlatformDetailProvider::class
 
     // File Picker

@@ -66,7 +66,7 @@ class LlamatikRAGManager : RAGManager {
         }
     }
 
-    override suspend fun retrieveContext(query: String, topK: Int): String =
+    override suspend fun retrieveContext(query: String, chatId: String, topK: Int): String =
         withContext(Dispatchers.IO) {
             try {
                 val queryEmbedding = LlamaBridge.embed(query)
