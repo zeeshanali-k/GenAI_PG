@@ -21,6 +21,10 @@ class LiteRT_LMRagManager : RAGManager {
         return ""
     }
 
+    override suspend fun retrieveAllContext(chatId: String): String {
+        return ""
+    }
+
     override suspend fun clearIndex() {
     }
 

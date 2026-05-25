@@ -114,6 +114,10 @@ class MediaPipeRAGManager(
             }
         }
 
+    override suspend fun retrieveAllContext(chatId: String): String {
+        return vectorDBRepository.retrieveAllText(chatId)
+    }
+
     override suspend fun clearIndex() {
         //TODO: implement
         embedder?.close()

@@ -21,4 +21,8 @@ interface VectorDBRepository {
         chatId: String,
     ): String
 
+    suspend fun retrieveAllText(
+        chatId: String,
+    ): String
+
 }

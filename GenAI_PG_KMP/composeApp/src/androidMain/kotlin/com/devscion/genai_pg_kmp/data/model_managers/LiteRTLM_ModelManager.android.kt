@@ -4,14 +4,16 @@ import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.provider.OpenableColumns
 import android.util.Log
+import co.touchlab.kermit.Logger
 import com.devscion.genai_pg_kmp.domain.LLMRuntimeManager
 import com.devscion.genai_pg_kmp.domain.MediaType
 import com.devscion.genai_pg_kmp.domain.PlatformFile
+import com.devscion.genai_pg_kmp.domain.RAG_VERIFICATION_SYSTEM_PROMPT
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
 import com.devscion.genai_pg_kmp.domain.model.InferenceBackend
 import com.devscion.genai_pg_kmp.domain.model.Model
-import com.devscion.genai_pg_kmp.domain.model.ModelManagerRuntimeFeature
 import com.devscion.genai_pg_kmp.domain.rag.RAGManager
+import com.devscion.genai_pg_kmp.domain.parseRagResponseStatus
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
@@ -36,6 +38,9 @@ class LiteRTLM_ModelManager(
     override var ragManager: RAGManager
 ) : LLMRuntimeManager, KoinComponent {
 
+    private val logger = Logger.withTag("LiteRTLM_ModelManager")
+
+    private lateinit var samplerConfig: SamplerConfig
     private var conversation: Conversation? = null
     override var systemMessage: String? = null
     private var engine: Engine? = null
@@ -52,26 +57,20 @@ class LiteRTLM_ModelManager(
                     modelPath = resolvedModelPath,
                     backend = model.backend.toLiteRTLMBackend(),
                     maxNumTokens = model.maxTokens,
-                    visionBackend = if (model.features.contains(ModelManagerRuntimeFeature.VISION)) Backend.GPU() else null,
-                    audioBackend = if (model.features.contains(ModelManagerRuntimeFeature.AUDIO)) Backend.GPU() else null
+//                    visionBackend = if (model.features.contains(ModelManagerRuntimeFeature.VISION)) Backend.GPU() else null,
+//                    audioBackend = if (model.features.contains(ModelManagerRuntimeFeature.AUDIO)) Backend.GPU() else null
                     // optional: Pick a writable dir. This can improve 2nd load time.
                     // cacheDir = "/tmp/" or context.cacheDir.path (for Android)
                 )
                 engine = Engine(engineConfig)
                 engine?.initialize()
-                val conversationConfig = ConversationConfig(
-                    systemInstruction = systemMessage?.let {
-                        Contents.of(Content.Text(it))
-                    },
-                    samplerConfig = SamplerConfig(
-                        topK = model.topK,
-                        topP = model.topP.toDouble(),
-                        temperature = model.temperature.toDouble(),
-                        seed = model.randomSeed,
-                    ),
+                samplerConfig = SamplerConfig(
+                    topK = model.topK,
+                    topP = model.topP.toDouble(),
+                    temperature = model.temperature.toDouble(),
+                    seed = model.randomSeed,
                 )
-
-                conversation = engine?.createConversation(conversationConfig)
+                conversation = createConversation()
                 true
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -89,26 +88,26 @@ class LiteRTLM_ModelManager(
                 if (engine == null) {
                     throw IllegalStateException("Engine must be initialized")
                 }
+                val activeConversation = conversation
+                    ?: throw IllegalStateException("Conversation must be initialized")
                 val contents = mutableListOf<Content>()
                 contents.add(Content.Text(inputPrompt))
 
                 attachments.filter { it.type == MediaType.IMAGE && it.bytes != null }
                     .forEach { file ->
-                        Log.d("LiteRT_LMModelManager", "file-> $file")
+                        logger.d("file-> $file")
 
                         contents.add(Content.ImageBytes(file.bytes!!))
                     }
-                conversation?.sendMessageAsync(
+                activeConversation.sendMessageAsync(
                     Contents.of(contents),
                     callback = object : MessageCallback {
                         override fun onMessage(message: Message) {
-                            Log.d(
-                                "LiteRT_LMModelManager",
+                            logger.d(
                                 "message-> $message"
                             )
                             message.contents.contents.forEach {
-                                Log.d(
-                                    "LiteRT_LMModelManager",
+                                logger.d(
                                     "content-> $it"
                                 )
                                 if (it is Content.Text) {
@@ -123,16 +122,14 @@ class LiteRTLM_ModelManager(
                         }
 
                         override fun onDone() {
-                            Log.d(
-                                "LiteRT_LMModelManager",
+                            logger.d(
                                 "onDone"
                             )
                             this@callbackFlow.close()
                         }
 
                         override fun onError(throwable: Throwable) {
-                            Log.d(
-                                "LiteRT_LMModelManager",
+                            logger.d(
                                 "onError"
                             )
                             throwable.printStackTrace()
@@ -151,6 +148,25 @@ class LiteRTLM_ModelManager(
             }
         }
 
+    override suspend fun getRagPromptResponse(prompt: String, ragResponse: String): Int {
+        val response = withContext(Dispatchers.IO) {
+            val verificationConversation = createConversation()
+            try {
+                verificationConversation?.sendMessage(
+                    Message.user(
+                        "System: $RAG_VERIFICATION_SYSTEM_PROMPT\n" +
+                                "User: $prompt\n" +
+                                "Retrieved Context: $ragResponse"
+                    )
+                )?.contents?.contents?.firstOrNull()
+            } finally {
+                verificationConversation?.close()
+            }
+        }
+        logger.d { "getRagPromptResponse-> $response" }
+        return parseRagResponseStatus((response as? Content.Text)?.text)
+    }
+
     override fun close() {
         engine?.close()
         engine = null
@@ -164,6 +180,16 @@ class LiteRTLM_ModelManager(
         withContext(Dispatchers.IO) {
             conversation?.cancelProcess()
         }
+    }
+
+    private fun createConversation(): Conversation? {
+        val conversationConfig = ConversationConfig(
+            systemInstruction = systemMessage?.let {
+                Contents.of(Content.Text(it))
+            },
+            samplerConfig = samplerConfig,
+        )
+        return engine?.createConversation(conversationConfig)
     }
 
 

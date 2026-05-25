@@ -33,6 +33,8 @@ interface RAGManager {
      */
     suspend fun retrieveContext(query: String, chatId: String, topK: Int = 3): String
 
+    suspend fun retrieveAllContext(chatId: String): String
+
     /**
      * Clear all indexed documents from the store.
      */

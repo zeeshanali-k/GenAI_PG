@@ -86,6 +86,10 @@ class LlamatikRAGManager : RAGManager {
             }
         }
 
+    override suspend fun retrieveAllContext(chatId: String): String {
+        return vectorStore.getAllContext()
+    }
+
     override suspend fun clearIndex() {
         vectorStore.clear()
         logger.d { "Cleared RAG index" }
