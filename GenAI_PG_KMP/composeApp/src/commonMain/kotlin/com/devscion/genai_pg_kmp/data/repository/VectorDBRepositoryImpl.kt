@@ -131,4 +131,22 @@ class VectorDBRepositoryImpl(
             result.joinToString { it.content + "\n" }
         }
 
+    override suspend fun retrieveAllText(chatId: String): String {
+        val query = RoomRawQuery(
+            sql = """
+                SELECT rowid, content, file_name, distance
+                FROM doc_embeddings
+                WHERE chat_id = ?
+            """
+        ) { stmt ->
+            stmt.bindText(1, chatId)
+        }
+        val result = vectorEmbeddingsDao.searchNearest(query)
+        logger.d {
+            "Retrieved embeddings: ${result.size}"
+        }
+
+        return result.joinToString { it.content }
+    }
+
 }

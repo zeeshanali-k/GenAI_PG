@@ -34,7 +34,7 @@ class MediaPipeRAGManager : RAGManager {
         }
     }
 
-    override suspend fun retrieveContext(query: String, topK: Int): String =
+    override suspend fun retrieveContext(query: String, chatId: String, topK: Int): String =
         withContext(Dispatchers.IO) {
             try {
                 val queryEmbedding = vectorStore.generateSimpleEmbedding(query)
@@ -52,6 +52,10 @@ class MediaPipeRAGManager : RAGManager {
                 ""
             }
         }
+
+    override suspend fun retrieveAllContext(chatId: String): String {
+        return vectorStore.getAllContext()
+    }
 
     override suspend fun clearIndex() {
         vectorStore.clear()

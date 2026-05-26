@@ -7,10 +7,13 @@ import com.devscion.genai_pg_kmp.data.rag.MediaPipeRAGManager
 import com.devscion.genai_pg_kmp.domain.LLMRuntimeManager
 import com.devscion.genai_pg_kmp.domain.MediaType
 import com.devscion.genai_pg_kmp.domain.PlatformFile
+import com.devscion.genai_pg_kmp.domain.RAGResponseStatus
+import com.devscion.genai_pg_kmp.domain.RAG_VERIFICATION_SYSTEM_PROMPT
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
 import com.devscion.genai_pg_kmp.domain.model.InferenceBackend
 import com.devscion.genai_pg_kmp.domain.model.Model
 import com.devscion.genai_pg_kmp.domain.rag.RAGManager
+import com.devscion.genai_pg_kmp.domain.parseRagResponseStatus
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.genai.llminference.GraphOptions
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
@@ -131,6 +134,27 @@ class MediaPipeModelManager(
                 }
             }
         }
+
+    override suspend fun getRagPromptResponse(
+        prompt: String,
+        ragResponse: String
+    ): Int {
+        val inference = llmInference ?: return RAGResponseStatus.VALID.status
+        val verificationSession = LlmInferenceSession.createFromOptions(
+            inference,
+            sessionOptions.build()
+        )
+        return try {
+            verificationSession.addQueryChunk(
+                "System: $RAG_VERIFICATION_SYSTEM_PROMPT\n" +
+                        "User: $prompt\n" +
+                        "Retrieved Context: $ragResponse"
+            )
+            parseRagResponseStatus(verificationSession.generateResponse())
+        } finally {
+            verificationSession.close()
+        }
+    }
 
     private fun addImageToSession(file: PlatformFile) {
         val bitmap = BitmapFactory.decodeByteArray(file.bytes, 0, file.bytes!!.size)

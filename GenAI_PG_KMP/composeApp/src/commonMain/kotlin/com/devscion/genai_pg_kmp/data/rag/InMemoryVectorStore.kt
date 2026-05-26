@@ -144,4 +144,6 @@ class InMemoryVectorStore {
             add(text = chunk, embedding = embeddings, documentId = documentId)
         }
     }
+
+    fun getAllContext() = chunks.joinToString(separator = "\n\n") { it.text }
 }

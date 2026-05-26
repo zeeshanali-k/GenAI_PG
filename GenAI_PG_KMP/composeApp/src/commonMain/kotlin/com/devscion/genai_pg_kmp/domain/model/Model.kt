@@ -8,14 +8,16 @@ typealias SizeMB = Int
  * @param temperature The amount of randomness introduced during generation. A higher temperature results in more creativity in the generated text, while a lower temperature produces more predictable generation.
  */
 
+const val MAX_TOKEN = 3000
+
 data class Model(
     val id: String,
     val name: String,
     val size: SizeMB,
     val backend: InferenceBackend = InferenceBackend.CPU,
     val topK: Int = 64,
-    val maxTokens: Int = 1024,
-    val temperature: Float = 0.5f,
+    val maxTokens: Int = MAX_TOKEN,
+    val temperature: Float = 0.6f,
     val topP: Float = 0.95f,
     val randomSeed: Int = 0,
     val features: List<ModelManagerRuntimeFeature> = listOf(ModelManagerRuntimeFeature.TEXT),

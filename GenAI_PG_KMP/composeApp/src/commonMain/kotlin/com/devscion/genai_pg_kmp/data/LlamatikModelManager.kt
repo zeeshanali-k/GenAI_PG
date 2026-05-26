@@ -3,9 +3,11 @@ package com.devscion.genai_pg_kmp.data
 import co.touchlab.kermit.Logger
 import com.devscion.genai_pg_kmp.domain.LLMRuntimeManager
 import com.devscion.genai_pg_kmp.domain.PlatformFile
+import com.devscion.genai_pg_kmp.domain.RAG_VERIFICATION_SYSTEM_PROMPT
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
 import com.devscion.genai_pg_kmp.domain.model.Model
 import com.devscion.genai_pg_kmp.domain.rag.RAGManager
+import com.devscion.genai_pg_kmp.domain.parseRagResponseStatus
 import com.llamatik.library.platform.GenStream
 import com.llamatik.library.platform.LlamaBridge
 import kotlinx.coroutines.Dispatchers
@@ -17,27 +19,24 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-//TODO: test on physical device and improve rag prompt to respond regardless of retrieved rag context
 class LlamatikModelManager(
     override var ragManager: RAGManager
 ) : LLMRuntimeManager {
+
+    private val logger = Logger.withTag("LlamatikModelManager")
     override var systemMessage: String? = null
 
     override suspend fun loadModel(model: Model): Boolean {
         return withContext(Dispatchers.IO) {
             try {
                 val path = model.localPath.also {
-                    Logger.d("LlamatikModelManager") {
-                        "Path-> $it"
-                    }
+                    logger.d { "Path-> $it" }
                     println("LlamatikModelManager-> loadModel-> Path: $it")
                 } ?: return@withContext false
                 val isLoaded = LlamaBridge.initGenerateModel(path)
                 return@withContext isLoaded
             } catch (e: Exception) {
-                Logger.d("LlamatikModelManager") {
-                    "Error-> ${e.message} :: ${e.cause}"
-                }
+                logger.d { "Error-> ${e.message} :: ${e.cause}" }
                 return@withContext false
             }
         }
@@ -67,7 +66,9 @@ class LlamatikModelManager(
                     systemMessage ?: "", "", inputPrompt,
                     object : GenStream {
                         override fun onDelta(text: String) {
-                            println("LlamatikModelManager-> sendPromptToLLM-> onDelta: $text")
+                            logger.d {
+                                "onDelta: $text"
+                            }
                             trySend(
                                 ChunkedModelResponse(
                                     isDone = false,
@@ -77,7 +78,7 @@ class LlamatikModelManager(
                         }
 
                         override fun onComplete() {
-                            println("LlamatikModelManager-> sendPromptToLLM-> onComplete")
+                            logger.d { "sendPromptToLLM-> onComplete" }
                             trySend(
                                 ChunkedModelResponse(
                                     isDone = true,
@@ -88,7 +89,8 @@ class LlamatikModelManager(
                         }
 
                         override fun onError(message: String) {
-                            println("LlamatikModelManager-> sendPromptToLLM-> onError: $message")
+                            println("LlamatikModelManager-> sendPromptToLLM-> ")
+                            logger.d { "onError: $message" }
                             trySend(
                                 ChunkedModelResponse(
                                     isDone = true,
@@ -104,4 +106,16 @@ class LlamatikModelManager(
 
             }
         }
+
+    override suspend fun getRagPromptResponse(prompt: String, ragResponse: String): Int {
+        val response = withContext(Dispatchers.IO) {
+            LlamaBridge.generate(
+                "System: $RAG_VERIFICATION_SYSTEM_PROMPT\n" +
+                        "User: $prompt\n" +
+                        "Retrieved Context: $ragResponse"
+            )
+        }
+        Logger
+        return parseRagResponseStatus(response)
+    }
 }
