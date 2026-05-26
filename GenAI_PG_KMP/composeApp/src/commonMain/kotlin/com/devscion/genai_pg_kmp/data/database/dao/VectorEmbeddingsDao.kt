@@ -17,11 +17,14 @@ interface VectorEmbeddingsDao {
     @RawQuery
     suspend fun searchNearest(query: RoomRawQuery): List<VectorSearchResult>
 
+    @RawQuery
+    suspend fun getChatDocumentEmbeddings(query: RoomRawQuery): List<VectorSearchResult>
+
 }
 
 data class VectorSearchResult(
     val rowid: Long,
-    val distance: Float,
+    val distance: Double,
     val content: String,
     val file_name: String,
 )

@@ -11,6 +11,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.io.InputStream
 
 class ModelPathProviderAndroid(
     private val context: Context,
@@ -80,7 +81,7 @@ class ModelPathProviderAndroid(
     override suspend fun getContentByteArray(path: FilePath): ByteArray? =
         withContext(Dispatchers.IO) {
             try {
-                context.contentResolver.openInputStream(path.toUri())?.use {
+                openInputStream(path)?.use {
                     it.readBytes()
                 }
             } catch (e: Exception) {
@@ -92,13 +93,9 @@ class ModelPathProviderAndroid(
     override suspend fun getContentText(path: FilePath): String? =
         withContext(Dispatchers.IO) {
             try {
-                val file = File(path)
-                FileInputStream(file).use {
+                openInputStream(path)?.use {
                     it.bufferedReader().readText()
                 }
-//                context.contentResolver.openInputStream(path.toUri())?.use {
-//                    it.bufferedReader().readText()
-//                }
             } catch (e: Exception) {
                 logger.d { "getContextText: ${e.message} :: ${e.cause} :: ${e.localizedMessage}" }
                 e.printStackTrace()
@@ -126,4 +123,12 @@ class ModelPathProviderAndroid(
         }
         return null
     }
+
+    private fun openInputStream(path: String): InputStream? =
+        when {
+            path.startsWith("content://") || path.startsWith("file://") ->
+                context.contentResolver.openInputStream(path.toUri())
+
+            else -> FileInputStream(File(path))
+        }
 }

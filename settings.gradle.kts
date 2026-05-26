@@ -34,3 +34,4 @@ dependencyResolutionManagement {
 rootProject.name = "GenAI_PG"
 include("GenAI_PG_KMP:composeApp:app")
 include(":GenAI_PG_KMP:composeApp")
+include(":GenAI_PG_KMP:responseFormatter")

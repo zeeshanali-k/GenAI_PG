@@ -69,14 +69,10 @@ class AndroidFilePicker(
                         )
                     )
                 } else {
-                    // For documents, we get text content
-                    val content = context.contentResolver.openInputStream(uri)?.use {
-                        it.bufferedReader().readText()
-                    } ?: ""
                     activeContinuation?.resume(
                         PlatformFile(
                             name = fileName,
-                            content = content,
+                            content = null,
                             pathOrUri = uri.toString(),
                             type = MediaType.DOCUMENT
                         )

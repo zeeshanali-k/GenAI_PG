@@ -84,6 +84,7 @@ class LlamatikModelManager(
                                     chunk = ""
                                 )
                             )
+                            close()
                         }
 
                         override fun onError(message: String) {
@@ -94,6 +95,7 @@ class LlamatikModelManager(
                                     chunk = ""
                                 )
                             )
+                            close()
                         }
 
                     })

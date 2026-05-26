@@ -7,6 +7,7 @@ import com.devscion.genai_pg_kmp.domain.rag.RAGDocument
 import com.devscion.genai_pg_kmp.domain.rag.RAGDocumentChunk
 import com.devscion.genai_pg_kmp.domain.rag.RAGManager
 import com.devscion.genai_pg_kmp.domain.repository.VectorDBRepository
+import com.devscion.genai_pg_kmp.utils.Constants.DEFAULT_EMBEDDING_DIMENSION
 import com.google.mediapipe.tasks.text.textembedder.TextEmbedder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -31,6 +32,7 @@ class MediaPipeRAGManager(
         tokenizerPath: String,
     ): Boolean = withContext(Dispatchers.IO) {
         try {
+            if (embedder != null) return@withContext true
             val path = modelPathProvider.resolvePath(embeddingModelPath)
             logger.d { "Loading embedding model: $embeddingModelPath :: $path" }
             if (embedder != null) {
@@ -62,18 +64,23 @@ class MediaPipeRAGManager(
                 chunks.forEachIndexed { index, chunk ->
                     val embedding = embedder!!.embed(chunk).embeddingResult().embeddings()
 
-                    logger.d { "Embedding Result chunk $index: ${chunk.length} :: ${embedding?.size}" }
-                    embedding.firstOrNull()?.floatEmbedding()?.copyOf(768)?.let {
-                        vectorDBRepository.addEmbeddings(
-                            it,
-                            ragDocumentChunk = RAGDocumentChunk(
-                                docId = Clock.System.now().toEpochMilliseconds(),
-                                filename = document.metadata["title"]!!,
-                                chunk = chunk,
-                                chatId = document.metadata["chat_id"]!!
-                            )
-                        )
+                    logger.d {
+                        "Embedding Result chunk $index: ${chunk.length} :: ${embedding?.size} :: ${
+                            embedding.firstOrNull()?.floatEmbedding()?.size
+                        }"
                     }
+                    embedding.firstOrNull()?.floatEmbedding()
+                        ?.copyOf(DEFAULT_EMBEDDING_DIMENSION)?.let {
+                            vectorDBRepository.addEmbeddings(
+                                it,
+                                ragDocumentChunk = RAGDocumentChunk(
+                                    docId = Clock.System.now().toEpochMilliseconds(),
+                                    filename = document.metadata["title"]!!,
+                                    chunk = chunk,
+                                    chatId = document.metadata["chat_id"]!!
+                                )
+                            )
+                        }
                 }
                 logger.d { "Successfully indexed document ${document.id}" }
             } catch (e: Exception) {
@@ -84,17 +91,18 @@ class MediaPipeRAGManager(
         }
     }
 
-    override suspend fun retrieveContext(query: String, topK: Int): String =
+    override suspend fun retrieveContext(query: String, chatId: String, topK: Int): String =
         withContext(Dispatchers.IO) {
             try {
                 logger.d { "Retrieving context for query (topK=$topK)" }
-
+                if (embedder == null) return@withContext ""
                 val promptEmbedding =
                     embedder!!.embed(query).embeddingResult().embeddings().firstOrNull()
                         ?.floatEmbedding() ?: return@withContext ""
 
                 val retrievedResponse = vectorDBRepository.retrieveText(
-                    promptEmbedding.copyOf(768)
+                    promptEmbeddings = promptEmbedding.copyOf(DEFAULT_EMBEDDING_DIMENSION),
+                    chatId = chatId,
                 )
 
                 logger.d { "Retrieved $retrievedResponse" }

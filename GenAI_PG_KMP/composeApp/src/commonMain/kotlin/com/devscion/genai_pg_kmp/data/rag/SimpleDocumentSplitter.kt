@@ -63,47 +63,74 @@ class SimpleDocumentSplitter {
         chunkSize: Int = 500,
         overlap: Int = 50,
     ): List<String> {
-        val chunks = mutableListOf<TextChunk>()
+        if (text.isBlank()) return emptyList()
+
+        require(chunkSize > 0) { "chunkSize must be greater than 0" }
+
+        val normalizedText = text.trim()
+        val safeOverlap = overlap.coerceIn(0, chunkSize - 1)
+        val minimumStep = (chunkSize - safeOverlap).coerceAtLeast(1)
+        val chunks = mutableListOf<String>()
         var start = 0
 
-        while (start < text.length) {
-            val end = minOf(start + chunkSize, text.length)
-
-            // If we're not at the end of the text, find a clean break point
-            val breakPoint = if (end < text.length) {
-                findBreakPoint(text, start, end)
+        while (start < normalizedText.length) {
+            val requestedEnd = minOf(start + chunkSize, normalizedText.length)
+            val breakPoint = if (requestedEnd >= normalizedText.length) {
+                normalizedText.length
             } else {
-                end
+                findBreakPoint(normalizedText, start, requestedEnd)
+                    .coerceIn(start + 1, requestedEnd)
             }
 
-            val chunkText = text.substring(start, breakPoint).trim()
-            if (chunkText.isNotEmpty()) {
-                chunks.add(TextChunk(chunkText, start, breakPoint))
+            val chunkText = normalizedText.substring(start, breakPoint).trim()
+            if (chunkText.isNotEmpty() && chunks.lastOrNull() != chunkText) {
+                chunks.add(chunkText)
             }
 
-            // Move forward, but back up by overlap amount for context continuity
-            start = maxOf(breakPoint - overlap, start + 1)
+            if (breakPoint >= normalizedText.length) break
+
+            val candidateStart = maxOf(start + minimumStep, breakPoint - safeOverlap)
+            val nextStart = alignChunkStart(normalizedText, candidateStart)
+            start = nextStart.coerceIn(start + 1, normalizedText.length)
         }
 
-        return chunks.map { it.text }
+        return chunks
     }
 
     private fun findBreakPoint(text: String, start: Int, end: Int): Int {
-        // Try each separator from most preferred to least
+        val preferredSearchStart = start + (end - start) / 2
+
+        // Try each separator from most preferred to least.
+        // We prefer a break in the latter half so we keep chunk sizes reasonably stable.
         for (separator in separators) {
-            val searchStart = (end - (end - start) / 2) // search in the latter half of chunk
-            val idx = text.lastIndexOf(separator, end, ignoreCase = false)
-            if (idx > searchStart) {
+            val idx = text.lastIndexOf(separator, startIndex = end - 1, ignoreCase = false)
+            if (idx in preferredSearchStart until end) {
                 return idx + separator.length
             }
         }
-        // No clean break found, hard cut at end
+
         return end
     }
-}
 
-data class TextChunk(
-    val text: String,
-    val startIndex: Int,
-    val endIndex: Int
-)
+    private fun alignChunkStart(text: String, candidateStart: Int): Int {
+        if (candidateStart <= 0 || candidateStart >= text.length) return candidateStart
+
+        var start = candidateStart
+
+        // If overlap lands in the middle of a word, advance to the next boundary
+        // so we don't create suffix chunks like "reas", "eas", "as", ...
+        if (text[start - 1].isWordCharacter() && text[start].isWordCharacter()) {
+            while (start < text.length && text[start].isWordCharacter()) {
+                start++
+            }
+        }
+
+        while (start < text.length && text[start].isWhitespace()) {
+            start++
+        }
+
+        return start
+    }
+
+    private fun Char.isWordCharacter(): Boolean = isLetterOrDigit() || this == '_'
+}

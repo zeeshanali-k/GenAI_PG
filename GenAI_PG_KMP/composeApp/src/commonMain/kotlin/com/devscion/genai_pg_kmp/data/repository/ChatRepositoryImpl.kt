@@ -8,6 +8,7 @@ import com.devscion.genai_pg_kmp.data.database.entity.ChatEntity
 import com.devscion.genai_pg_kmp.data.database.entity.MessageEntity
 import com.devscion.genai_pg_kmp.data.database.entity.toChatHistoryItem
 import com.devscion.genai_pg_kmp.domain.ModelPathProvider
+import com.devscion.genai_pg_kmp.domain.document.DocumentTextParser
 import com.devscion.genai_pg_kmp.domain.model.ChatHistoryItem
 import com.devscion.genai_pg_kmp.domain.repository.ChatRepository
 import com.devscion.genai_pg_kmp.ui.state.DocumentState
@@ -22,6 +23,7 @@ class ChatRepositoryImpl(
     private val chatDao: ChatDao,
     private val messageDao: MessageDao,
     private val pathProvider: ModelPathProvider,
+    private val documentTextParser: DocumentTextParser,
 ) : ChatRepository {
 
     private val logger = Logger.withTag("ChatRepositoryImpl")
@@ -39,7 +41,7 @@ class ChatRepositoryImpl(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private suspend fun List<MessageEntity>.mapToChatHistoryItemList() = map { msg ->
-        msg.toChatHistoryItem(pathProvider)
+        msg.toChatHistoryItem(pathProvider, documentTextParser)
     }
 
     override suspend fun createChat(title: String): String {
@@ -84,7 +86,7 @@ class ChatRepositoryImpl(
             attachments = attachmentData
         )
         messageDao.insertMessage(message)
-        return message.toChatHistoryItem(pathProvider)
+        return message.toChatHistoryItem(pathProvider, documentTextParser)
     }
 
     override suspend fun updateChatMessage(

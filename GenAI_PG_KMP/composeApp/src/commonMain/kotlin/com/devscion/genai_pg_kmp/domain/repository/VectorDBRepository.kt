@@ -6,8 +6,19 @@ interface VectorDBRepository {
 
     suspend fun addEmbeddings(embeddings: FloatArray, ragDocumentChunk: RAGDocumentChunk)
 
-    suspend fun retrieveEmbeddings(promptEmbeddings: FloatArray): FloatArray
+    suspend fun retrieveEmbeddings(
+        promptEmbeddings: FloatArray,
+        chatId: String,
+    ): FloatArray
 
-    suspend fun retrieveText(promptEmbeddings: FloatArray): String
+    suspend fun hasChatDocumentEmbeddings(
+        chatId: String,
+        fileName: String,
+    ): Boolean
+
+    suspend fun retrieveText(
+        promptEmbeddings: FloatArray,
+        chatId: String,
+    ): String
 
 }

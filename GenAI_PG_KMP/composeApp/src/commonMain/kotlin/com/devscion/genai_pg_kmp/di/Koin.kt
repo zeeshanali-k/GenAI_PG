@@ -7,10 +7,12 @@ import co.touchlab.kermit.Logger
 import com.devscion.genai_pg_kmp.data.LlamatikModelManager
 import com.devscion.genai_pg_kmp.data.database.AppDatabase
 import com.devscion.genai_pg_kmp.data.database.DatabaseBuilder
+import com.devscion.genai_pg_kmp.data.document.DefaultDocumentTextParser
 import com.devscion.genai_pg_kmp.data.rag.LlamatikRAGManager
 import com.devscion.genai_pg_kmp.data.repository.ChatRepositoryImpl
 import com.devscion.genai_pg_kmp.data.repository.VectorDBRepositoryImpl
 import com.devscion.genai_pg_kmp.domain.LLMRuntimeManager
+import com.devscion.genai_pg_kmp.domain.document.DocumentTextParser
 import com.devscion.genai_pg_kmp.domain.model.ModelManagerRuntime
 import com.devscion.genai_pg_kmp.domain.rag.RAGManager
 import com.devscion.genai_pg_kmp.domain.repository.ChatRepository
@@ -70,12 +72,13 @@ val databaseModule = module {
                         "onCreate-> ${connection.inTransaction()}"
                     }
                     // vec0 virtual tables are NOT managed by Room's schema system
+                    // you can use Room with some additional logic and a blob column for embeddings
                     connection.execSQL(
                         """CREATE VIRTUAL TABLE IF NOT EXISTS doc_embeddings USING vec0(       
-                           embedding float[768],
+                           embedding float[512],
                            +content TEXT,
-                           +chat_id TEXT,
-                           +file_name TEXT
+                           chat_id TEXT,
+                           file_name TEXT
                         )"""
                     )
                     Logger.d(null, "RoomDBCallBack") {
@@ -91,6 +94,7 @@ val databaseModule = module {
 }
 
 val repositoryModule = module {
+    singleOf(::DefaultDocumentTextParser) bind DocumentTextParser::class
     singleOf(::ChatRepositoryImpl) bind ChatRepository::class
     singleOf(::VectorDBRepositoryImpl) bind VectorDBRepository::class
 }
