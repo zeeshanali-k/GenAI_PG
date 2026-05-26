@@ -2,6 +2,7 @@ package com.devscion.genai_pg_kmp.domain
 
 import co.touchlab.kermit.Logger
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
+import com.devscion.genai_pg_kmp.domain.model.MAX_TOKEN
 import com.devscion.genai_pg_kmp.domain.model.Model
 import com.devscion.genai_pg_kmp.domain.rag.RAGDocument
 import com.devscion.genai_pg_kmp.domain.rag.RAGManager
@@ -14,9 +15,9 @@ enum class RAGResponseStatus(val status: Int) {
 
 val RAG_VERIFICATION_SYSTEM_PROMPT =
     "You are analyzing a response/retrieved context from RAG pipeline for user prompt. Analyze the message and return just single digit in range [-1,  0, 1]. Don't return any text AT ALL. Just a single number from specified range." +
+            " Return number ${RAGResponseStatus.SUMMARIZE.status} if the user asked for a summary/simplify/summarize, since we would like to fetch the whole document for summarization." +
             " Return number ${RAGResponseStatus.INVALID.status} if the response is not sufficient for the prompt to be answered in detail. " +
-            " Return number ${RAGResponseStatus.VALID.status} if the response is detailed enough to response to user correctly. " +
-            " Return number ${RAGResponseStatus.SUMMARIZE.status} if the user asked for a summary/simplify/summarize, since we would like to fetch the whole document for summarization."
+            " Return number ${RAGResponseStatus.VALID.status} if the response is detailed enough to response to user correctly. "
 
 private val ragStatusPattern = Regex("""(?<![\d-])-?1(?!\d)|(?<![\d-])0(?!\d)""")
 private val validRagStatuses = RAGResponseStatus.entries.map { it.status }.toSet()
@@ -81,6 +82,9 @@ interface LLMRuntimeManager {
             chatId = chatId,
             topK = topK
         )
+        Logger.d("LLMModelManager") {
+            "sendPromptWithRAG: context-> $context"
+        }
         if (context.isNotBlank()) {
             when (val status = getRagPromptResponse(inputPrompt, context)) {
                 RAGResponseStatus.VALID.status -> Unit
@@ -90,16 +94,11 @@ interface LLMRuntimeManager {
                 }
 
                 RAGResponseStatus.INVALID.status -> {
-                    val expandedContext = ragManager.retrieveAllContext(chatId)
-                    if (expandedContext.isBlank() || expandedContext == context) {
-                        return insufficientRagContextFlow()
-                    }
-
-                    context = expandedContext
-                    val expandedStatus = getRagPromptResponse(inputPrompt, context)
-                    if (expandedStatus == RAGResponseStatus.INVALID.status) {
-                        return insufficientRagContextFlow()
-                    }
+                    context += ragManager.retrieveContext(
+                        query = inputPrompt,
+                        chatId = chatId,
+                        topK = topK
+                    )
                 }
 
                 else -> {
@@ -109,15 +108,28 @@ interface LLMRuntimeManager {
                 }
             }
         }
+        val normalizedContext = normalizeContext(context, inputPrompt)
         Logger.d("LLMModelManager") {
             "RAG Context: $context"
         }
         val augmentedPrompt = if (context.isNotEmpty()) {
-            buildPromptWithContext(inputPrompt, context)
+            buildPromptWithContext(inputPrompt, normalizedContext)
         } else {
             inputPrompt
         }
         return sendPromptToLLM(augmentedPrompt, images ?: emptyList())
+    }
+
+    fun normalizeContext(context: String, inputPrompt: String): String {
+        var normalizedContext = context
+        val splitContext = context.split(" ")
+        val splitInputSize = context.split(" ")
+        val cSize = splitContext.size
+        val iSize = splitInputSize.size
+        if (cSize + iSize > MAX_TOKEN) {
+            normalizedContext = splitContext.take(MAX_TOKEN - iSize - 10).joinToString { " " }
+        }
+        return normalizedContext
     }
 
     fun insufficientRagContextFlow(): Flow<ChunkedModelResponse> {

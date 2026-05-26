@@ -12,8 +12,8 @@ import com.devscion.genai_pg_kmp.domain.RAG_VERIFICATION_SYSTEM_PROMPT
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
 import com.devscion.genai_pg_kmp.domain.model.InferenceBackend
 import com.devscion.genai_pg_kmp.domain.model.Model
-import com.devscion.genai_pg_kmp.domain.rag.RAGManager
 import com.devscion.genai_pg_kmp.domain.parseRagResponseStatus
+import com.devscion.genai_pg_kmp.domain.rag.RAGManager
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
@@ -88,8 +88,9 @@ class LiteRTLM_ModelManager(
                 if (engine == null) {
                     throw IllegalStateException("Engine must be initialized")
                 }
-                val activeConversation = conversation
-                    ?: throw IllegalStateException("Conversation must be initialized")
+                val activeConversation = conversation ?: createConversation()?.also {
+                    conversation = it
+                } ?: throw IllegalStateException("Conversation must be initialized")
                 val contents = mutableListOf<Content>()
                 contents.add(Content.Text(inputPrompt))
 
@@ -150,8 +151,9 @@ class LiteRTLM_ModelManager(
 
     override suspend fun getRagPromptResponse(prompt: String, ragResponse: String): Int {
         val response = withContext(Dispatchers.IO) {
+            closeActiveConversation()
             val verificationConversation = createConversation()
-            try {
+            verificationConversation.use { verificationConversation ->
                 verificationConversation?.sendMessage(
                     Message.user(
                         "System: $RAG_VERIFICATION_SYSTEM_PROMPT\n" +
@@ -159,8 +161,6 @@ class LiteRTLM_ModelManager(
                                 "Retrieved Context: $ragResponse"
                     )
                 )?.contents?.contents?.firstOrNull()
-            } finally {
-                verificationConversation?.close()
             }
         }
         logger.d { "getRagPromptResponse-> $response" }
@@ -190,6 +190,11 @@ class LiteRTLM_ModelManager(
             samplerConfig = samplerConfig,
         )
         return engine?.createConversation(conversationConfig)
+    }
+
+    private fun closeActiveConversation() {
+        conversation?.close()
+        conversation = null
     }
 
 

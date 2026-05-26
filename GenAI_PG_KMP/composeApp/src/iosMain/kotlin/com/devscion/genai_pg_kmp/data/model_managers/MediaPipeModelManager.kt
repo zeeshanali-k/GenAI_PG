@@ -4,6 +4,7 @@ package com.devscion.genai_pg_kmp.data.model_managers
 
 import com.devscion.genai_pg_kmp.domain.LLMRuntimeManager
 import com.devscion.genai_pg_kmp.domain.PlatformFile
+import com.devscion.genai_pg_kmp.domain.RAGResponseStatus
 import com.devscion.genai_pg_kmp.domain.SwiftModelManager
 import com.devscion.genai_pg_kmp.domain.model.ChunkedModelResponse
 import com.devscion.genai_pg_kmp.domain.model.Model
@@ -74,6 +75,10 @@ class MediaPipeModelManager(
                 }
             }
         }
+
+    override suspend fun getRagPromptResponse(prompt: String, ragResponse: String): Int {
+        return RAGResponseStatus.VALID.status
+    }
 
     override suspend fun loadEmbeddingModel(
         embeddingModelPath: String,

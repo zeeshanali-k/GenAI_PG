@@ -36,7 +36,7 @@ actual val platformKoinModule: Module = module {
 
     //Model Managers
     factory(named(ModelManagerRuntime.LITE_RT_LM)) {
-        LiteRTLM_ModelManager(get(named(ModelManagerRuntime.LlamaTIK)))
+        LiteRTLM_ModelManager(get(named(ModelManagerRuntime.MEDIA_PIPE)))
     } bind LLMRuntimeManager::class
 
     factory(named(ModelManagerRuntime.MEDIA_PIPE)) {
